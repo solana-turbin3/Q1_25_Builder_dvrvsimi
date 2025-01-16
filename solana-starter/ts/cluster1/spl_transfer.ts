@@ -49,3 +49,7 @@ const to = new PublicKey("95HRCXSxU18oh8hWXbdkqxenqCwopDGXjmhFQ9Pd2EuQ");
         console.error(`Oops, something went wrong: ${e}`)
     }
 })();
+
+
+// Transfer completed successfully
+// Transaction signature: 5LpzGjLxxbm2HTp7bv9iG3BBNFMp94i8FAmmF9144cFXkLn2G22X5yXQV25s7KCmKGy4kbKwacoQ9XBByEgWYsjy
