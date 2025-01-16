@@ -1,0 +1,11 @@
+/home/dvrvsimi/projects/TURBIN3-Q1-25/rust-prereq/target/debug/deps/libconsole-3e38ad6290b7fb8f.rmeta: /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/lib.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/common_term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/kb.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/unix_term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/utils.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/ansi.rs
+
+/home/dvrvsimi/projects/TURBIN3-Q1-25/rust-prereq/target/debug/deps/console-3e38ad6290b7fb8f.d: /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/lib.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/common_term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/kb.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/unix_term.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/utils.rs /home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/ansi.rs
+
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/lib.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/common_term.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/kb.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/term.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/unix_term.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/utils.rs:
+/home/dvrvsimi/.cargo/registry/src/index.crates.io-6f17d22bba15001f/console-0.15.10/src/ansi.rs:

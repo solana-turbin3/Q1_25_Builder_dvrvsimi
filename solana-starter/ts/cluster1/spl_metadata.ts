@@ -1,4 +1,4 @@
-import wallet from "../dev-wallet.json"
+import wallet from "/home/dvrvsimi/.config/solana/id.json"
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults"
 import { 
     createMetadataAccountV3, 
