@@ -1,4 +1,4 @@
-import wallet from "../wba-wallet.json"
+import wallet from "/home/dvrvsimi/.config/solana/id.json"
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults"
 import { createGenericFile, createSignerFromKeypair, signerIdentity } from "@metaplex-foundation/umi"
 import { irysUploader } from "@metaplex-foundation/umi-uploader-irys"
@@ -15,16 +15,25 @@ umi.use(signerIdentity(signer));
 
 (async () => {
     try {
-        //1. Load image
-        //2. Convert image to generic file.
-        //3. Upload image
+        // 1. Load image
+        const imageBuffer = await readFile('./public/generug.png');
 
-        // const image = ???
+        // 2. Convert image to generic file
+        const image = createGenericFile(
+            imageBuffer,
+            'generug.png',
+            {
+                contentType: 'image/png',
+            }
+        );
 
-        // const [myUri] = ??? 
-        // console.log("Your image URI: ", myUri);
+        // 3. Upload image
+        const [myUri] = await umi.uploader.upload([image]);
+        console.log("Your image URI: ", myUri);
     }
     catch(error) {
         console.log("Oops.. Something went wrong", error);
     }
 })();
+
+// Your image URI:  https://devnet.irys.xyz/4an6q1ofnVMctsZk4BWzSCAzeiz8S1kAMFbEe7k1f9TR

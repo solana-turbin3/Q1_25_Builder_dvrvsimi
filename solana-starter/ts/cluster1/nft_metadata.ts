@@ -1,4 +1,4 @@
-import wallet from "../wba-wallet.json"
+import wallet from "/home/dvrvsimi/.config/solana/id.json"
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults"
 import { createGenericFile, createSignerFromKeypair, signerIdentity } from "@metaplex-foundation/umi"
 import { irysUploader } from "@metaplex-foundation/umi-uploader-irys"
@@ -14,32 +14,49 @@ umi.use(signerIdentity(signer));
 
 (async () => {
     try {
-        // Follow this JSON structure
-        // https://docs.metaplex.com/programs/token-metadata/changelog/v1.0#json-structure
+        // Create metadata object
+        const metadata = {
+            name: "Saru Generug NFT",
+            symbol: "SRUG",
+            description: "A unique generated rug design NFT",
+            image: "https://devnet.irys.xyz/4an6q1ofnVMctsZk4BWzSCAzeiz8S1kAMFbEe7k1f9TR",
+            attributes: [
+                { trait_type: 'Pattern', value: 'Geometric' },
+                { trait_type: 'Style', value: 'Modern' },
+                { trait_type: 'Collection', value: 'Genesis' }
+            ],
+            properties: {
+                files: [
+                    {
+                        type: "image/png",
+                        uri: "https://devnet.irys.xyz/4an6q1ofnVMctsZk4BWzSCAzeiz8S1kAMFbEe7k1f9TR"
+                    }
+                ]
+            },
+            creators: [
+                {
+                    address: signer.publicKey,
+                    share: 100
+                }
+            ]
+        };
 
-        // const image = ???
-        // const metadata = {
-        //     name: "?",
-        //     symbol: "?",
-        //     description: "?",
-        //     image: "?",
-        //     attributes: [
-        //         {trait_type: '?', value: '?'}
-        //     ],
-        //     properties: {
-        //         files: [
-        //             {
-        //                 type: "image/png",
-        //                 uri: "?"
-        //             },
-        //         ]
-        //     },
-        //     creators: []
-        // };
-        // const myUri = ???
-        // console.log("Your metadata URI: ", myUri);
+        // Convert metadata to generic file
+        const file = createGenericFile(
+            JSON.stringify(metadata),
+            'metadata.json',
+            {
+                contentType: 'application/json',
+            }
+        );
+
+        // Upload metadata
+        const [myUri] = await umi.uploader.upload([file]);
+        console.log("Your metadata URI: ", myUri);
     }
     catch(error) {
         console.log("Oops.. Something went wrong", error);
     }
 })();
+
+// Your metadata URI:  https://devnet.irys.xyz/BmD558EcZWfD2Z5NF6CRVUdsuRMivMMHbM6sECSbiTVS
