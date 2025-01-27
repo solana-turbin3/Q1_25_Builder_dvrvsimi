@@ -1,16 +1,23 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Hr1ebtraa2NChqt3coBK6jJCVEyCjP6QcQSH56HuFR6S");
+pub mod state;
+pub mod errors;
+pub mod constants;
+pub mod instructions;
+
+use crate::instructions::{Initialize, Exchange};
+
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
-pub mod escrow {
+mod escrow {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        msg!("Greetings from: {:?}", ctx.program_id);
-        Ok(())
+    pub fn initialize(ctx: Context<Initialize>, amount: u64) -> Result<()> {
+        instructions::initialize::handler(ctx, amount)
+    }
+
+    pub fn exchange(ctx: Context<Exchange>, amount: u64) -> Result<()> {
+        instructions::exchange::handler(ctx, amount)
     }
 }
-
-#[derive(Accounts)]
-pub struct Initialize {}
