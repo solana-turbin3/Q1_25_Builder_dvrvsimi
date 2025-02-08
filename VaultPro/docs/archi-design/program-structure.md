@@ -2,7 +2,7 @@
 
 The SolanaVault Pro multisig system is structured around a central `MultisigProgram` that orchestrates all core operations. This program manages the `MultisigState`, which stores essential configuration like owner addresses and approval thresholds, and handles `Transaction` accounts that track proposed transfers and their approvals. The program also controls a `TokenVault` through a PDA, ensuring secure custody of assets. The relationship between these components is hierarchical, with the `MultisigProgram` serving as the main authority that creates, executes, and manages all aspects of the multisig wallet.
 
-The security and compliance aspects are handled through a role-based access control system, where `Role` and `Permission` structures define what actions different members can perform. Instead of storing audit logs on-chain, the system emits events that can be captured by an optional `EventIndexer` service for compliance purposes. This architecture leverages Solana's native features for security while keeping the system efficient by minimizing on-chain storage. All these components work together to provide a secure, flexible, and compliant multisig solution that can handle various organizational needs.
+The security and compliance aspects are handled through a role-based access control system, where `Role` and `Permission` structures define what actions different members can perform. Instead of storing audit logs on-chain, the system emits events that can be captured by an optional *`EventIndexer` service for compliance purposes. This architecture leverages Solana's native features for security while keeping the system efficient by minimizing on-chain storage. All these components work together to provide a secure, flexible, and compliant multisig solution that can handle various organizational needs.
 
 
 ```mermaid
@@ -12,7 +12,7 @@ classDiagram
     MultisigProgram --|> MultisigState : Manages
     MultisigProgram --|> Transaction : Creates & Executes
     MultisigProgram --|> TokenVault : Controls via PDA
-    MultisigProgram ..|> EventIndexer : Emits events
+    MultisigProgram ..|> *EventIndexer : Emits events
     MultisigState --|> Role : Contains
     Role --|> Permission : Defines
 
@@ -67,8 +67,11 @@ classDiagram
         +can_manage_roles: bool
     }
 
-    class EventIndexer{
+    class *EventIndexer{
         +index_program_events()
         +store_transaction_logs()
         +generate_audit_reports()
     }
+
+
+    * `getProgramAccounts` and `getSignaturesForAddress` can handle `EventIndexer` task? All transaction history and audit data can be fetched directly through Solana's RPC methods.
