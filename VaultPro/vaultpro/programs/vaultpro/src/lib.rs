@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke;
-use anchor_spl::token::{self, Token, TokenAccount};
+use anchor_spl::token::{self, Token};
 
 declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
 
@@ -35,12 +34,12 @@ pub mod multisig_wallet {
             MultisigError::InvalidMultisigAddress
         );
 
-        // too expensive logic? maybe using deup() would be more efficient
-        for (i, owner) in owners.iter().enumerate() {
-            for j in (i + 1)..owners.len() {
-                require!(*owner != owners[j], MultisigError::DuplicateOwner);
-            }
-        }
+
+        // check for duplicate owners
+        let mut sorted_owners = owners.clone();
+        sorted_owners.sort();
+        sorted_owners.dedup();
+        require!(sorted_owners.len() == owners.len(), MultisigError::DuplicateOwner);
 
         // Initialize the multisig state
         multisig.name = name;
@@ -70,15 +69,18 @@ pub mod multisig_wallet {
             MultisigError::InvalidVaultAuthority
         );
 
-        // Verify the token vault PDA
-        let (expected_vault, vault_bump) = Pubkey::find_program_address(
-            &[
-                b"vault",
-                ctx.accounts.multisig.key().as_ref(),
-                mint.key().as_ref()
-            ],
-            ctx.program_id
-        );
+        // // Verify the token vault PDA
+        // let (expected_vault, vault_bump) = Pubkey::find_program_address(
+        //     &[
+        //         b"vault",
+        //         ctx.accounts.multisig.key().as_ref(),
+        //         ctx.accounts.mint.key().as_ref()
+        //     ],
+        //     ctx.program_id
+        // );
+
+        let expected_vault = ctx.accounts.token_vault.key();
+
         require!(
             expected_vault == ctx.accounts.token_vault.key(),
             MultisigError::InvalidVaultAddress
@@ -91,7 +93,7 @@ pub mod multisig_wallet {
         ctx: Context<CreateTransaction>,
         instruction_data: Vec<u8>,
     ) -> Result<()> {
-        let multisig = &ctx.accounts.multisig;
+        let multisig = &mut ctx.accounts.multisig;
         let transaction = &mut ctx.accounts.transaction;
         let proposer = &ctx.accounts.proposer;
 
@@ -110,6 +112,8 @@ pub mod multisig_wallet {
         transaction.execute_after = transaction.created_at + 3600;  // 1 hour timelock
         transaction.executed = false;
         transaction.owner_set_seqno = multisig.owner_set_seqno;
+
+        multisig.nonce += 1; // increment nonce
 
         Ok(())
     }
@@ -213,16 +217,16 @@ pub struct InitializeMultisig<'info> {
         bump
     )]
     pub multisig: Account<'info, MultisigState>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
-
-
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
 pub struct CreateTokenVault<'info> {
     pub multisig: Account<'info, MultisigState>,
+
     #[account(
         init,
         payer = payer,
@@ -231,14 +235,17 @@ pub struct CreateTokenVault<'info> {
         token::mint = mint,
         token::authority = vault_authority,
     )]
-    pub token_vault: Account<'info, TokenAccount>,
+    pub token_vault: Account<'info, token::TokenAccount>,
+
     /// CHECK: PDA used as token account authority
     #[account(
         seeds = [b"authority", multisig.key().as_ref()],
         bump
     )]
     pub vault_authority: UncheckedAccount<'info>,
+
     pub mint: Account<'info, token::Mint>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -262,7 +269,9 @@ pub struct CreateTransaction<'info> {
         bump
     )]
     pub transaction: Account<'info, Transaction>,
+
     pub proposer: Signer<'info>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -282,6 +291,8 @@ pub struct ApproveTransaction<'info> {
         constraint = transaction.multisig == multisig.key()
     )]
     pub transaction: Account<'info, Transaction>,
+
+
     pub owner: Signer<'info>,
 }
 
@@ -299,6 +310,8 @@ pub struct ExecuteTransaction<'info> {
         constraint = transaction.multisig == multisig.key()
     )]
     pub transaction: Account<'info, Transaction>,
+
+
     pub executor: Signer<'info>,
 }
 
