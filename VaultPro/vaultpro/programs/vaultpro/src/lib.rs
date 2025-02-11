@@ -34,6 +34,19 @@ pub mod multisig_wallet {
             MultisigError::InvalidMultisigAddress
         );
 
+        // Verify vault authority PDA
+        let (expected_authority, _authority_bump) = Pubkey::find_program_address(
+            &[
+                b"authority",
+                multisig.key().as_ref()
+            ],
+            ctx.program_id
+        );
+        require!(
+            expected_authority == ctx.accounts.vault_authority.key(),
+            MultisigError::InvalidVaultAuthority
+        );
+
 
         // check for duplicate owners
         let mut sorted_owners = owners.clone();
@@ -221,6 +234,10 @@ pub struct InitializeMultisig<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
+
+    pub vault_authority: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]
