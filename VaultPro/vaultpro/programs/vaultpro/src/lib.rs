@@ -235,7 +235,7 @@ pub struct InitializeMultisig<'info> {
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 
-    pub vault_authority: UncheckedAccount<'info>,
+    pub vault_authority: UncheckedAccount<'info>, //telling anchor not to bother about the account structure
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
 }
