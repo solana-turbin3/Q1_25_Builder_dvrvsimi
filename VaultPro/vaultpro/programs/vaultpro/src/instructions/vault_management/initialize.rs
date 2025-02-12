@@ -1,0 +1,54 @@
+// src/instructions/vault_management/initialize.rs
+use anchor_lang::prelude::*;
+use crate::state::MultisigState;
+
+#[derive(Accounts)]
+#[instruction(name: String)]
+pub struct InitializeMultisig<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + 32 + (32 * 32) + 8 + 1 + 1 + 1,
+        seeds = [b"multisig", name.as_bytes()],
+        bump
+    )]
+    pub multisig: Account<'info, MultisigState>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub vault_authority: UncheckedAccount<'info>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+pub fn initialize_multisig(
+    ctx: Context<InitializeMultisig>,
+    name: String,
+    owners: Vec<Pubkey>,
+    threshold: u8,
+) -> Result<()> {
+    let multisig = &mut ctx.accounts.multisig;
+    
+    // Basic validation
+    require!(threshold > 0, MultisigError::InvalidThreshold);
+    require!(threshold <= owners.len() as u8, MultisigError::InvalidThreshold);
+    require!(owners.len() <= 32, MultisigError::TooManyOwners);
+    require!(name.len() <= 32, MultisigError::NameTooLong);
+
+    // Check for duplicate owners
+    let mut sorted_owners = owners.clone();
+    sorted_owners.sort();
+    sorted_owners.dedup();
+    require!(sorted_owners.len() == owners.len(), MultisigError::DuplicateOwner);
+
+    // Initialize the multisig state
+    multisig.name = name;
+    multisig.owners = owners;
+    multisig.threshold = threshold;
+    multisig.nonce = 0;
+    multisig.owner_set_seqno = 0;
+    multisig.bump = *ctx.bumps.get("multisig").unwrap();
+
+    Ok(())
+}
