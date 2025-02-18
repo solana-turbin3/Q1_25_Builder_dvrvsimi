@@ -13,11 +13,17 @@ pub struct InitializeMultisig<'info> {
         bump
     )]
     pub multisig: Account<'info, MultisigState>,
+    
+    /// CHECK: PDA that will own token vaults
+    #[account(
+        seeds = [b"authority", multisig.key().as_ref()],
+        bump,
+    )]
+    pub vault_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    pub vault_authority: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
 }
