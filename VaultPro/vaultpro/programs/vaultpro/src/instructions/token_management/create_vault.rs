@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
-use crate::events::VaultCreatedEvent;
+use crate::event::VaultCreatedEvent;
 use crate::MultisigError;
 
 // Constant for vault limits, move to constant.rs

@@ -1,4 +1,11 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token};
+use crate::event::WithdrawEvent;
+use crate::MultisigError;
+
+
 #[derive(Accounts)]
+#[instruction(amount: u64)] // amount needs to be available at compile time
 pub struct Withdraw<'info> {
     pub multisig: Account<'info, MultisigState>,
     
@@ -6,6 +13,9 @@ pub struct Withdraw<'info> {
         mut,
         seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
         bump
+
+        constraint = token_vault.amount >= amount @ MultisigError::InsufficientFunds  // amount here
+
     )]
     pub token_vault: Account<'info, token::TokenAccount>,
     
@@ -16,14 +26,22 @@ pub struct Withdraw<'info> {
     )]
     pub vault_authority: UncheckedAccount<'info>,
     
-    #[account(mut)]
+    #[account(
+        mut,
+
+        constraint = recipient_token_account.mint == token_mint.key() @ MultisigError::InvalidMint, // so the right token is transferred
+
+    )]
     pub recipient_token_account: Account<'info, token::TokenAccount>,
+
+    
     pub token_mint: Account<'info, token::Mint>,
     
     #[account(
         mut,
-        constraint = transaction.executed == false,
-        constraint = transaction.approvers.len() >= multisig.threshold as usize
+        constraint = transaction.executed == false @ MultisigError::AlreadyExecuted,
+        constraint = transaction.approvers.len() >= multisig.threshold as usize @ MultisigError::NotEnoughApprovals,
+        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged
     )]
     pub transaction: Account<'info, Transaction>,
     
@@ -31,6 +49,8 @@ pub struct Withdraw<'info> {
 }
 
 pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+
+
     // Get vault authority seeds for signing
     let auth_bump = *ctx.bumps.get("vault_authority").unwrap();
     let auth_seeds = &[
@@ -39,6 +59,12 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         &[auth_bump]
     ];
     let signer = &[&auth_seeds[..]];
+
+    // verify sufficient balance
+    require!(
+        ctx.accounts.token_vault.amount >= amount,
+        MultisigError::InsufficientFunds
+    );
 
     // Transfer tokens from vault to recipient
     token::transfer(

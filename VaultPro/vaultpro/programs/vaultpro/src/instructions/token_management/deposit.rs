@@ -1,3 +1,9 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token};
+use crate::event::DepositEvent;
+use crate::MultisigError;
+
+
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
