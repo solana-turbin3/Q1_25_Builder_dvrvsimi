@@ -1,6 +1,8 @@
 // src/instructions/vault_management/initialize.rs
 use anchor_lang::prelude::*;
 use crate::state::MultisigState;
+use crate::MultisigError;
+
 
 #[derive(Accounts)]
 #[instruction(name: String)]
@@ -55,6 +57,10 @@ pub fn initialize_multisig(
     multisig.nonce = 0;
     multisig.owner_set_seqno = 0;
     multisig.bump = *ctx.bumps.get("multisig").unwrap();
+
+    // Initialize vault tracking
+    multisig.vault_count = 0;
+    multisig.vaults = Vec::new();
 
     Ok(())
 }

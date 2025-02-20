@@ -23,6 +23,6 @@ impl Transaction {
         8 +     // created_at
         8 +     // execute_after
         1 +     // executed
-        1       // owner_set_seqno
+        1       // owner_set_seqno, do we even need this here?
     }
 }
