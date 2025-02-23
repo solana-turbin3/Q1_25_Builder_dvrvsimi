@@ -1,6 +1,7 @@
 // src/instructions/vault_management/change_threshold.rs
 use anchor_lang::prelude::*;
 use crate::state::MultisigState;
+use crate::MultisigError;
 
 #[derive(Accounts)]
 pub struct ChangeThreshold<'info> {
@@ -8,8 +9,8 @@ pub struct ChangeThreshold<'info> {
     pub multisig: Account<'info, MultisigState>,
     
     #[account(
-        constraint = multisig.owners.contains(owner.key),
-        constraint = owner.key == &authority.key()
+        constraint = multisig.owners.contains(owner.key) @ MultisigError::NotAnOwner,
+        constraint = owner.key == &authority.key() @ MultisigError::InvalidVaultAuthority
     )]
     pub owner: Signer<'info>,
     
@@ -22,14 +23,10 @@ pub fn change_threshold(
     new_threshold: u8,
 ) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
-    
-    // Validate new threshold
-    require!(new_threshold > 0, MultisigError::InvalidThreshold);
-    require!(
-        new_threshold <= multisig.owners.len() as u8,
-        MultisigError::InvalidThreshold
-    );
 
+    
+    // helper method instead
+    multisig.validate_threshold(new_threshold)?;
     // Update threshold
     multisig.threshold = new_threshold;
     

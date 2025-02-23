@@ -21,9 +21,13 @@ pub struct VaultInfo {
 }
 
 impl MultisigState {
+
+    // helper method to calculate the space required for the accounts
     pub fn space() -> usize {
         8 +     // discriminator
+        4 +     // name length prefix
         32 +    // name (max length)
+        4 +     // owners vec length prefix
         32 * 32 + // owners (max 32)
         1 +     // threshold
         1 +     // nonce
@@ -31,6 +35,23 @@ impl MultisigState {
         1 +     // bump
         1 +     // initialized
         1 +     // vault_count
-        (32 + 32) * 10  // vaults (max 10 vaults, each with mint and vault address)
+        4 +     // vaults vec length prefix
+        (32 + 32) * 10  // vaults (max 10 vaults, mint + vault address)
+    }
+
+    // helper method to validate the threshold
+    pub fn validate_threshold(&self, new_threshold: u8) -> Result<()> {
+        require!(new_threshold > 0, MultisigError::InvalidThreshold);
+        require!(
+            new_threshold <= self.owners.len() as u8,
+            MultisigError::InvalidThreshold
+        );
+        Ok(())
+    }
+
+
+    // making the owner check consistent across all instructions that need it
+    pub fn is_owner(&self, owner: &Pubkey) -> bool {
+        self.owners.contains(owner)
     }
 }

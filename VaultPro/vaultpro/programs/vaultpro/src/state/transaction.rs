@@ -18,11 +18,13 @@ impl Transaction {
         8 +     // discriminator
         32 +    // multisig
         32 +    // proposer
+        4 +     // instruction_data length prefix
         1000 +  // instruction_data (adjust as needed)
+        4 +     // approvers vec length prefix
         32 * 32 + // approvers (max 32)
         8 +     // created_at
         8 +     // execute_after
         1 +     // executed
-        1       // owner_set_seqno, do we even need this here?
+        1       // owner_set_seqno
     }
 }

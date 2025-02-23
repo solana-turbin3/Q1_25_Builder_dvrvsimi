@@ -1,4 +1,4 @@
-// src/instructions/vault_management/initialize.rs
+// src/instructions/multisig_management/initialize.rs
 use anchor_lang::prelude::*;
 use crate::state::MultisigState;
 use crate::MultisigError;
@@ -10,7 +10,7 @@ pub struct InitializeMultisig<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + (32 * 32) + 8 + 1 + 1 + 1,
+        space = MultisigState::space(),
         seeds = [b"multisig", name.as_bytes()],
         bump
     )]
@@ -26,7 +26,6 @@ pub struct InitializeMultisig<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
 }
 
@@ -38,10 +37,11 @@ pub fn initialize_multisig(
 ) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
     
-    // Basic validation
+    // validation
     require!(threshold > 0, MultisigError::InvalidThreshold);
     require!(threshold <= owners.len() as u8, MultisigError::InvalidThreshold);
     require!(owners.len() <= 32, MultisigError::TooManyOwners);
+    require!(!owners.is_empty(), MultisigError::NoOwnersFound);
     require!(name.len() <= 32, MultisigError::NameTooLong);
 
     // Check for duplicate owners
