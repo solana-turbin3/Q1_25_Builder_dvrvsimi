@@ -54,4 +54,39 @@ impl MultisigState {
     pub fn is_owner(&self, owner: &Pubkey) -> bool {
         self.owners.contains(owner)
     }
+
+    pub fn has_vault_for_mint(&self, mint: Pubkey) -> bool {
+        self.vaults.iter().any(|v| v.mint == mint)
+    }
+
+    pub fn add_vault(&mut self, mint: Pubkey, vault: Pubkey) -> Result<()> {
+        // check if vault exists
+        require!(!self.has_vault_for_mint(mint), MultisigError::InvalidMint);
+        
+        // check and increment counter
+        require!(self.vault_count < MAX_VAULTS_PER_MULTISIG, MultisigError::MaxVaultsReached);
+        self.vault_count = self.vault_count.checked_add(1)
+            .ok_or(MultisigError::InvalidAmount)?;
+            
+        // add vault info
+        self.vaults.push(VaultInfo {
+            mint,
+            vault,
+        });
+        
+        Ok(())
+    }
+
+    // helper method to validate the vault
+    pub fn validate_vault(&self, vault: Pubkey, mint: Pubkey) -> Result<()> {
+        // find the vault info
+        let vault_info = self.vaults
+            .iter()
+            .find(|v| v.vault == vault && v.mint == mint)
+            .ok_or(MultisigError::InvalidVaultAddress)?;
+            
+        Ok(())
+    }
+
+
 }

@@ -7,8 +7,12 @@ use crate::MultisigError;
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
-        constraint = multisig.initialized @ ErrorCode::MultisigNotInitialized,
-        constraint = multisig.owners.len() > 0 @ ErrorCode::NoOwners,
+        constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
+        constraint = multisig.owners.len() > 0 @ MultisigError::NoOwnersFound,
+        constraint = multisig.validate_vault( // helper
+            token_vault.key(), 
+            token_mint.key()
+        ).is_ok() @ MultisigError::InvalidVaultAddress,
     )]
     pub multisig: Account<'info, MultisigState>,
 
@@ -16,8 +20,8 @@ pub struct Deposit<'info> {
         mut,
         seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
         bump,
-        constraint = token_vault.mint == token_mint.key() @ ErrorCode::InvalidMint,
-        constraint = token_vault.owner == vault_authority.key() @ ErrorCode::InvalidVaultAuthority,
+        constraint = token_vault.mint == token_mint.key() @ MultisigError::InvalidMint,
+        constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
     )]
     pub token_vault: Account<'info, token::TokenAccount>,
 
@@ -30,8 +34,8 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        constraint = depositor_token_account.mint == token_mint.key() @ ErrorCode::InvalidMint,
-        constraint = depositor_token_account.owner == depositor.key() @ ErrorCode::InvalidOwner,
+        constraint = depositor_token_account.mint == token_mint.key() @ MultisigError::InvalidMint,
+        constraint = depositor_token_account.owner == depositor.key() @ MultisigError::InvalidTokenOwner,
     )]
     pub depositor_token_account: Account<'info, token::TokenAccount>,
     
@@ -42,6 +46,9 @@ pub struct Deposit<'info> {
 }
 
 pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+    require!(amount > 0, MultisigError::InvalidAmount);
+
+
     // Transfer tokens from depositor to vault
     token::transfer(
         CpiContext::new(
@@ -61,6 +68,7 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         depositor: ctx.accounts.depositor.key(),
         mint: ctx.accounts.token_mint.key(),
         amount,
+        created_at: Clock::get()?.unix_timestamp,
     });
 
     Ok(())

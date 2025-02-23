@@ -2,9 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 use crate::event::VaultCreatedEvent;
 use crate::MultisigError;
-
-// Constant for vault limits, move to constant.rs
-const MAX_VAULTS_PER_MULTISIG: u8 = 10;
+use crate::constants::MAX_VAULTS_PER_MULTISIG;
+use crate::state::MultisigState;
 
 #[derive(Accounts)]
 pub struct CreateTokenVault<'info> {
@@ -51,15 +50,11 @@ pub struct CreateTokenVault<'info> {
 pub fn create_token_vault(ctx: Context<CreateTokenVault>) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
     
-    // increment vault counter, probably unnecessary 
-    multisig.vault_count = multisig.vault_count.checked_add(1)
-        .ok_or(MultisigError::InvalidAmount)?;
-    
-    // add vault info to the multisig state
-    multisig.vaults.push(VaultInfo {
-        mint: ctx.accounts.mint.key(),
-        vault: ctx.accounts.token_vault.key(),
-    });
+    // use the helper method which handles validation and increment
+    multisig.add_vault(
+        ctx.accounts.mint.key(),
+        ctx.accounts.token_vault.key(),
+    )?;
 
     emit!(VaultCreatedEvent {
         multisig: multisig.key(),

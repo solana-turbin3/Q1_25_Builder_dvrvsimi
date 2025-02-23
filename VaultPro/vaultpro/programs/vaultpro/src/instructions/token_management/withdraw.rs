@@ -7,6 +7,14 @@ use crate::MultisigError;
 #[derive(Accounts)]
 #[instruction(amount: u64)] // amount needs to be available at compile time
 pub struct Withdraw<'info> {
+    #[account(
+        constraint = multisig.initialized           @ MultisigError::MultisigNotInitialized,
+        constraint = multisig.validate_vault(
+            token_vault.key(), 
+            token_mint.key()
+        ).is_ok()                                   @ MultisigError::InvalidVaultAddress,
+    )]
+
     pub multisig: Account<'info, MultisigState>,
     
     #[account(
@@ -14,7 +22,7 @@ pub struct Withdraw<'info> {
         seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
         bump
 
-        constraint = token_vault.amount >= amount @ MultisigError::InsufficientFunds  // amount here
+        constraint = token_vault.amount >= amount    @ MultisigError::InsufficientFunds  // here
 
     )]
     pub token_vault: Account<'info, token::TokenAccount>,
@@ -40,8 +48,8 @@ pub struct Withdraw<'info> {
     #[account(
         mut,
         constraint = transaction.executed == false @ MultisigError::AlreadyExecuted,
-        constraint = transaction.approvers.len() >= multisig.threshold as usize @ MultisigError::NotEnoughApprovals,
-        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged
+        constraint = transaction.approvers.len() >= multisig.threshold as usize         @ MultisigError::NotEnoughApprovals,
+        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno            @ MultisigError::OwnerSetChanged,
     )]
     pub transaction: Account<'info, Transaction>,
     
@@ -60,11 +68,6 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     ];
     let signer = &[&auth_seeds[..]];
 
-    // verify sufficient balance
-    require!(
-        ctx.accounts.token_vault.amount >= amount,
-        MultisigError::InsufficientFunds
-    );
 
     // Transfer tokens from vault to recipient
     token::transfer(
@@ -83,12 +86,13 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     // Mark transaction as executed
     ctx.accounts.transaction.executed = true;
 
-    // Emit withdrawal event
+    // emit
     emit!(WithdrawEvent {
         multisig: ctx.accounts.multisig.key(),
         recipient: ctx.accounts.recipient_token_account.owner,
         mint: ctx.accounts.token_mint.key(),
         amount,
+        created_at: Clock::get()?.unix_timestamp,
     });
 
     Ok(())

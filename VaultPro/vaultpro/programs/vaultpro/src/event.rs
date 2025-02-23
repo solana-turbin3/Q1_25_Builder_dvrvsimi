@@ -15,6 +15,7 @@ pub struct DepositEvent {
     pub depositor: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
+    pub created_at: i64,
 }
 
 #[event]
@@ -23,6 +24,7 @@ pub struct WithdrawEvent {
     pub recipient: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
+    pub created_at: i64,
 }
 
 #[event]
