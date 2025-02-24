@@ -5,7 +5,7 @@ use crate::MultisigError;
 
 
 #[derive(Accounts)]
-#[instruction(amount: u64)] // amount needs to be available at compile time
+#[instruction(amount: u64)] // needs to be available at compile time
 pub struct Withdraw<'info> {
     #[account(
         constraint = multisig.initialized           @ MultisigError::MultisigNotInitialized,

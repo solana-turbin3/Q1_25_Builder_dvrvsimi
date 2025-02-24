@@ -20,7 +20,7 @@ pub struct Deposit<'info> {
         mut,
         seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
         bump,
-        constraint = token_vault.mint == token_mint.key() @ MultisigError::InvalidMint,
+        constraint = token_vault.mint == token_mint.key()       @ MultisigError::InvalidMint,
         constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
     )]
     pub token_vault: Account<'info, token::TokenAccount>,
