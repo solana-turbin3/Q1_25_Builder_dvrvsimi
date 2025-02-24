@@ -1,30 +1,29 @@
 // src/state/transaction.rs
 use anchor_lang::prelude::*;
+use crate::state::instruction_types::MultisigInstruction;
 
 #[account]
 pub struct Transaction {
-    pub multisig: Pubkey,
-    pub proposer: Pubkey,
-    pub instruction_data: Vec<u8>,
-    pub approvers: Vec<Pubkey>,
-    pub created_at: i64,
-    pub execute_after: i64,
-    pub executed: bool,
-    pub owner_set_seqno: u8,
+    pub multisig: Pubkey,                      // The multisig account this transaction belongs to
+    pub proposer: Pubkey,                      // Who proposed this transaction
+    pub instruction: MultisigInstruction,      // The typed instruction to execute
+    pub approvers: Vec<Pubkey>,                // Accounts that have approved (max 32)
+    pub created_at: i64,                       // When the transaction was created
+    pub execute_after: Option<i64>,            // When the transaction can be executed (timelock)
+    pub executed: bool,                        // Whether the transaction has been executed
+    pub owner_set_seqno: u8,                   // Owner set version when created
 }
 
 impl Transaction {
     pub fn space() -> usize {
-        8 +     // discriminator
-        32 +    // multisig
-        32 +    // proposer
-        4 +     // instruction_data length prefix
-        1000 +  // instruction_data (adjust as needed)
-        4 +     // approvers vec length prefix
-        32 * 32 + // approvers (max 32)
-        8 +     // created_at
-        8 +     // execute_after
-        1 +     // executed
-        1       // owner_set_seqno
+        8 +                                  // discriminator
+        32 +                                 // multisig
+        32 +                                 // proposer
+        500 +                                // instruction (estimate for the enum)
+        4 + (32 * 32) +                      // approvers vec (max 32 owners)
+        8 +                                  // created_at
+        9 +                                  // execute_after (Option<i64>)
+        1 +                                  // executed
+        1                                    // owner_set_seqno
     }
 }

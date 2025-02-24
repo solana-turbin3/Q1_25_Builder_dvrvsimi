@@ -13,7 +13,7 @@ pub struct ApproveTransaction<'info> {
 
     #[account(
         mut,
-        constraint = transaction.multisig == multisig.key()                     @ ProgramError::InvalidArgument,
+        constraint = transaction.multisig == multisig.key()                     @ MultisigError::InvalidMultisigAddress,
         constraint = !transaction.executed                                      @ MultisigError::AlreadyExecuted,
         constraint = transaction.owner_set_seqno == multisig.owner_set_seqno    @ MultisigError::OwnerSetChanged,
     )]
@@ -30,11 +30,14 @@ pub fn approve_transaction(
     let transaction = &mut ctx.accounts.transaction;
     let approver_key = ctx.accounts.approver.key();
 
-    // check if already approved but we already checked if already executed, possible conflict? 
-    require!(
-        !transaction.approvers.contains(&approver_key),
-        MultisigError::AlreadyApproved
-    );
+    // binary search instead
+    match transaction.approvers.binary_search(&approver_key) {
+        Ok(_) => return Err(MultisigError::AlreadyApproved.into()),
+        Err(pos) => {
+            // Keep approvers sorted for efficient lookups
+            transaction.approvers.insert(pos, approver_key);
+        }
+    }
 
     // add approval
     transaction.approvers.push(approver_key);

@@ -62,4 +62,25 @@ pub enum MultisigError {
 
     #[msg("Maximum number of vaults reached for this multisig")]
     MaxVaultsReached,
+
+    #[msg("Invalid proposer for transaction")]
+    InvalidProposer,
+    
+    #[msg("Invalid timelock period")]
+    InvalidTimelock,
+    
+    #[msg("Invalid transaction status")]
+    InvalidTransactionStatus,
+    
+    #[msg("Cannot execute transaction")]
+    CannotExecuteTransaction,
+    
+    #[msg("Invalid module ID")]
+    InvalidModuleId,
+    
+    #[msg("Invalid instruction ID")]
+    InvalidInstructionId,
+    
+    #[msg("Multisig is frozen")]
+    MultisigFrozen,
 }
