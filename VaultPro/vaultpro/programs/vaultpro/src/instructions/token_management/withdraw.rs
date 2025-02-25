@@ -98,19 +98,14 @@
 //     Ok(())
 // }
 
-
-
 // src/instructions/token_management/withdraw.rs
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 use crate::state::{MultisigState, Transaction};
 use crate::event::WithdrawEvent;
 use crate::error::MultisigError;
-use crate::instructions::token_management::state::{
-    MODULE_TOKEN_MANAGEMENT, 
-    INSTRUCTION_WITHDRAW,
-    WithdrawInstruction
-};
+use crate::constants::{MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_WITHDRAW};
+use crate::instructions::token_management::state::WithdrawInstruction;
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
@@ -123,11 +118,14 @@ pub struct Withdraw<'info> {
     #[account(
         mut,
         constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
-        constraint = transaction.executed @ MultisigError::NotExecuted, // must be executed by execute.rs first
+        constraint = transaction.executed @ MultisigError::NotExecuted, // Must be executed by execute.rs first
     )]
     pub transaction: Account<'info, Transaction>,
     
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
+    )]
     pub token_vault: Account<'info, token::TokenAccount>,
     
     /// CHECK: PDA authority
@@ -152,10 +150,10 @@ pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
     let transaction = &ctx.accounts.transaction;
     let instruction_data = &transaction.instruction_data;
     
-    // Validate the instruction data
+    // Validate the instruction data matches what we expect
     require!(instruction_data.len() >= 2, ProgramError::InvalidInstructionData);
     require!(instruction_data[0] == MODULE_TOKEN_MANAGEMENT, ProgramError::InvalidInstructionData);
-    require!(instruction_data[1] == INSTRUCTION_WITHDRAW, ProgramError::InvalidInstructionData);
+    require!(instruction_data[1] == TOKEN_INSTRUCTION_WITHDRAW, ProgramError::InvalidInstructionData);
     
     // Parse the withdrawal instruction
     let withdraw_data = WithdrawInstruction::try_from_slice(&instruction_data[2..])
@@ -170,11 +168,6 @@ pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
     require!(
         ctx.accounts.token_vault.mint == withdraw_data.token_mint,
         MultisigError::InvalidMint
-    );
-    
-    require!(
-        ctx.accounts.token_vault.owner == ctx.accounts.vault_authority.key(),
-        MultisigError::InvalidTokenOwner
     );
     
     require!(
@@ -215,7 +208,7 @@ pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
         withdraw_data.amount
     )?;
 
-    // emit
+    // Emit withdrawal event
     emit!(WithdrawEvent {
         multisig: ctx.accounts.multisig.key(),
         recipient: withdraw_data.recipient,

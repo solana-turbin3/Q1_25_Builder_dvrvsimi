@@ -37,6 +37,7 @@ impl MultisigState {
         1 +     // vault_count
         4 +     // vaults vec length prefix
         (32 + 32) * 10  // vaults (max 10 vaults, mint + vault address)
+        8       // default timelock
     }
 
     // helper method to validate the threshold
@@ -48,8 +49,8 @@ impl MultisigState {
         );
         Ok(())
     }
-
-
+    
+    
     // making the owner check consistent across all instructions that need it
     pub fn is_owner(&self, owner: &Pubkey) -> bool {
         self.owners.contains(owner)

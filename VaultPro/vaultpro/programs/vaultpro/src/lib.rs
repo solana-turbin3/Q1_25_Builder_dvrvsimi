@@ -5,44 +5,46 @@ pub mod error;
 pub mod state;
 pub mod instructions;
 pub mod constants;
+pub mod event;
 
 use instructions::*;
 
 declare_id!("");
 
 #[program]
-pub mod solana_vault_pro {
+pub mod vaultpro {
     use super::*;
 
-    // Transaction instructions
-    pub fn create_transaction(
-        ctx: Context<transaction::CreateTransaction>,
-        instruction_data: Vec<u8>,
-        timelock_duration: Option<i64>,
+    // Multisig Management instructions
+    pub fn initialize_multisig(
+        ctx: Context<multisig_management::InitializeMultisig>, 
+        name: String,
+        owners: Vec<Pubkey>,
+        threshold: u8
     ) -> Result<()> {
-        transaction::create_transaction(ctx, instruction_data, timelock_duration)
-    }
-
-    pub fn approve_transaction(ctx: Context<transaction::ApproveTransaction>) -> Result<()> {
-        transaction::approve_transaction(ctx)
-    }
-
-    pub fn execute_transaction(ctx: Context<transaction::ExecuteTransaction>) -> Result<()> {
-        transaction::execute_transaction(ctx)
+        multisig_management::initialize_multisig(ctx, name, owners, threshold)
     }
 
     // Token management instructions
-    pub fn withdraw(ctx: Context<token_management::Withdraw>) -> Result<()> {
-        token_management::withdraw(ctx)
+    pub fn create_token_vault(ctx: Context<token_management::CreateTokenVault>) -> Result<()> {
+        token_management::create_token_vault(ctx)
     }
 
     pub fn deposit(ctx: Context<token_management::Deposit>, amount: u64) -> Result<()> {
         token_management::deposit(ctx, amount)
     }
 
-    // Access control instructions 
-    // TODO: Add these
+    pub fn withdraw(ctx: Context<token_management::Withdraw>) -> Result<()> {
+        token_management::withdraw(ctx)
+    }
+    
+    pub fn change_threshold(ctx: Context<access_control::ChangeThreshold>) -> Result<()> {
+        access_control::change_threshold(ctx)
+    }
 
-    // Vault management instructions
-    // TODO: Add these
+    pub fn manage_owner(ctx: Context<access_control::ManageOwner>) -> Result<()> {
+        access_control::manage_owner(ctx)
+    }
+    
+    // the rest here
 }

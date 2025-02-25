@@ -1,8 +1,9 @@
 // src/instructions/multisig_management/initialize.rs
 use anchor_lang::prelude::*;
 use crate::state::MultisigState;
-use crate::MultisigError;
-
+use crate::error::MultisigError;
+use crate::constants::{MAX_OWNERS, MAX_NAME_LENGTH};
+use crate::event::MultisigInitializedEvent;
 
 #[derive(Accounts)]
 #[instruction(name: String)]
@@ -40,9 +41,9 @@ pub fn initialize_multisig(
     // validation
     require!(threshold > 0, MultisigError::InvalidThreshold);
     require!(threshold <= owners.len() as u8, MultisigError::InvalidThreshold);
-    require!(owners.len() <= 32, MultisigError::TooManyOwners);
+    require!(owners.len() <= MAX_OWNERS, MultisigError::TooManyOwners);
     require!(!owners.is_empty(), MultisigError::NoOwnersFound);
-    require!(name.len() <= 32, MultisigError::NameTooLong);
+    require!(name.len() <= MAX_NAME_LENGTH, MultisigError::NameTooLong);
 
     // Check for duplicate owners
     let mut sorted_owners = owners.clone();
@@ -57,10 +58,21 @@ pub fn initialize_multisig(
     multisig.nonce = 0;
     multisig.owner_set_seqno = 0;
     multisig.bump = *ctx.bumps.get("multisig").unwrap();
+    multisig.initialized = true;
+    multisig.default_timelock = 0; // Default to no timelock
 
     // Initialize vault tracking
     multisig.vault_count = 0;
     multisig.vaults = Vec::new();
+
+    // Emit initialization event
+    emit!(MultisigInitializedEvent {
+        multisig: multisig.key(),
+        name: multisig.name.clone(),
+        owners: multisig.owners.clone(),
+        threshold: multisig.threshold,
+        created_at: Clock::get()?.unix_timestamp,
+    });
 
     Ok(())
 }

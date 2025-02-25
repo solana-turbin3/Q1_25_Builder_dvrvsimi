@@ -1,13 +1,6 @@
 // src/instructions/token_management/state.rs
 use anchor_lang::prelude::*;
-
-// Constants for instruction type identification
-pub const MODULE_TOKEN_MANAGEMENT: u8 = 0;
-
-// Instruction types within this module
-pub const INSTRUCTION_CREATE_VAULT: u8 = 0;
-pub const INSTRUCTION_DEPOSIT: u8 = 1;
-pub const INSTRUCTION_WITHDRAW: u8 = 2;
+use crate::constants::{MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_CREATE_VAULT, TOKEN_INSTRUCTION_DEPOSIT, TOKEN_INSTRUCTION_WITHDRAW};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct WithdrawInstruction {
@@ -39,7 +32,7 @@ pub fn serialize_withdraw_instruction(
         recipient,
     };
     
-    let mut data = vec![MODULE_TOKEN_MANAGEMENT, INSTRUCTION_WITHDRAW];
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_WITHDRAW];
     let mut withdraw_data = withdraw.try_to_vec()?;
     data.append(&mut withdraw_data);
     
@@ -56,7 +49,7 @@ pub fn serialize_deposit_instruction(
         token_mint,
     };
     
-    let mut data = vec![MODULE_TOKEN_MANAGEMENT, INSTRUCTION_DEPOSIT];
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_DEPOSIT];
     let mut deposit_data = deposit.try_to_vec()?;
     data.append(&mut deposit_data);
     
@@ -71,7 +64,7 @@ pub fn serialize_create_vault_instruction(
         mint,
     };
     
-    let mut data = vec![MODULE_TOKEN_MANAGEMENT, INSTRUCTION_CREATE_VAULT];
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_CREATE_VAULT];
     let mut create_vault_data = create_vault.try_to_vec()?;
     data.append(&mut create_vault_data);
     

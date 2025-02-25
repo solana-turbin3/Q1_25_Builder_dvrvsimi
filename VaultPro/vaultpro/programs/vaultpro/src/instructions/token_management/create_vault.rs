@@ -1,7 +1,8 @@
+// src/instructions/token_management/create_vault.rs
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 use crate::event::VaultCreatedEvent;
-use crate::MultisigError;
+use crate::error::MultisigError;
 use crate::constants::MAX_VAULTS_PER_MULTISIG;
 use crate::state::MultisigState;
 
@@ -35,9 +36,6 @@ pub struct CreateTokenVault<'info> {
     )]
     pub vault_authority: UncheckedAccount<'info>,
 
-    #[account(
-        constraint = mint.is_initialized @ MultisigError::MultisigNotInitialized,
-    )]
     pub mint: Account<'info, token::Mint>,
 
     #[account(mut)]
@@ -50,12 +48,12 @@ pub struct CreateTokenVault<'info> {
 pub fn create_token_vault(ctx: Context<CreateTokenVault>) -> Result<()> {
     let multisig = &mut ctx.accounts.multisig;
     
-    // use the helper method which handles validation and increment
     multisig.add_vault(
         ctx.accounts.mint.key(),
         ctx.accounts.token_vault.key(),
     )?;
 
+    // emit event for the new vault creation
     emit!(VaultCreatedEvent {
         multisig: multisig.key(),
         vault: ctx.accounts.token_vault.key(),

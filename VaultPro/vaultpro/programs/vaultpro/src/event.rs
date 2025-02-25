@@ -1,6 +1,15 @@
 use anchor_lang::prelude::*;
 
 #[event]
+pub struct MultisigInitializedEvent {
+    pub multisig: Pubkey,
+    pub name: String,
+    pub owners: Vec<Pubkey>,
+    pub threshold: u8,
+    pub created_at: i64,
+}
+
+#[event]
 pub struct VaultCreatedEvent {
     pub multisig: Pubkey,
     pub vault: Pubkey,
@@ -25,13 +34,4 @@ pub struct WithdrawEvent {
     pub mint: Pubkey,
     pub amount: u64,
     pub created_at: i64,
-}
-
-#[event]
-pub struct TransferEvent {
-    pub source_multisig: Pubkey,
-    pub destination_multisig: Pubkey,
-    pub mint: Pubkey,
-    pub amount: u64,
-    pub executed_at: i64,
 }

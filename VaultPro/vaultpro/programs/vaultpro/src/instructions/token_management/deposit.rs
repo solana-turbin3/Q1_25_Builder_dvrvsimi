@@ -1,15 +1,16 @@
+// src/instructions/token_management/deposit.rs
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token};
 use crate::event::DepositEvent;
-use crate::MultisigError;
-
+use crate::error::MultisigError;
+use crate::state::MultisigState;
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
         constraint = multisig.owners.len() > 0 @ MultisigError::NoOwnersFound,
-        constraint = multisig.validate_vault( // helper
+        constraint = multisig.validate_vault(
             token_vault.key(), 
             token_mint.key()
         ).is_ok() @ MultisigError::InvalidVaultAddress,
@@ -20,7 +21,7 @@ pub struct Deposit<'info> {
         mut,
         seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
         bump,
-        constraint = token_vault.mint == token_mint.key()       @ MultisigError::InvalidMint,
+        constraint = token_vault.mint == token_mint.key() @ MultisigError::InvalidMint,
         constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
     )]
     pub token_vault: Account<'info, token::TokenAccount>,
@@ -40,6 +41,7 @@ pub struct Deposit<'info> {
     pub depositor_token_account: Account<'info, token::TokenAccount>,
     
     pub token_mint: Account<'info, token::Mint>,
+    
     #[account(mut)]
     pub depositor: Signer<'info>,
     pub token_program: Program<'info, Token>,
@@ -47,7 +49,6 @@ pub struct Deposit<'info> {
 
 pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     require!(amount > 0, MultisigError::InvalidAmount);
-
 
     // Transfer tokens from depositor to vault
     token::transfer(
