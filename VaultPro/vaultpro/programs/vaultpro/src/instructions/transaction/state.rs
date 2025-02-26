@@ -1,85 +1,108 @@
 // src/instructions/transaction/state.rs
 use anchor_lang::prelude::*;
+use crate::error::MultisigError;
+use crate::state::MultisigState;
 
-// Module identifier
+// Constants for the module
 pub const MODULE_TRANSACTION: u8 = 3;
-
-// Instruction types within this module
-pub const INSTRUCTION_CANCEL_TRANSACTION: u8 = 0;
-pub const INSTRUCTION_REVOKE_APPROVAL: u8 = 1;
-
-// Constants for identifying transaction status
 pub const TRANSACTION_STATUS_PENDING: u8 = 0;
 pub const TRANSACTION_STATUS_EXECUTED: u8 = 1;
 pub const TRANSACTION_STATUS_CANCELLED: u8 = 2;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct CancelTransactionInstruction {
-    pub transaction_account: Pubkey,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct RevokeApprovalInstruction {
-    pub transaction_account: Pubkey,
-}
-
-/// Helper function to serialize a cancel transaction instruction
-pub fn serialize_cancel_transaction_instruction(
-    transaction_account: Pubkey,
-) -> Result<Vec<u8>> {
-    let cancel_tx = CancelTransactionInstruction {
-        transaction_account,
-    };
-    
-    let mut data = vec![MODULE_TRANSACTION, INSTRUCTION_CANCEL_TRANSACTION];
-    let mut cancel_data = cancel_tx.try_to_vec()?;
-    data.append(&mut cancel_data);
-    
-    Ok(data)
-}
-
-/// Helper function to serialize a revoke approval instruction
-pub fn serialize_revoke_approval_instruction(
-    transaction_account: Pubkey,
-) -> Result<Vec<u8>> {
-    let revoke_approval = RevokeApprovalInstruction {
-        transaction_account,
-    };
-    
-    let mut data = vec![MODULE_TRANSACTION, INSTRUCTION_REVOKE_APPROVAL];
-    let mut revoke_data = revoke_approval.try_to_vec()?;
-    data.append(&mut revoke_data);
-    
-    Ok(data)
-}
-
 #[account]
 pub struct Transaction {
-    pub multisig: Pubkey,                // The multisig account this transaction belongs to
-    pub proposer: Pubkey,                // Who proposed this transaction
-    pub instruction_data: Vec<u8>,       // Serialized instruction data with module and operation IDs
-    pub approvers: Vec<Pubkey>,          // Accounts that have approved (max 32)
-    pub created_at: i64,                 // When the transaction was created
-    pub execute_after: Option<i64>,      // When the transaction can be executed (timelock)
-    pub executed: bool,                  // Whether the transaction has been executed
-    pub owner_set_seqno: u8,             // Owner set version when created
-    pub status: u8,                      // Transaction status (pending, executed, cancelled)
+    // Core fields
+    pub multisig: Pubkey,                // Parent multisig
+    pub proposer: Pubkey,                // Transaction proposer
+    pub instruction_data: Vec<u8>,       // Raw instruction data 
+    pub approvers: Vec<Pubkey>,          // List of approvers
+    
+    // Timing and status
+    pub created_at: i64,                 // Creation timestamp
+    pub execute_after: Option<i64>,      // Timelock expiry
+    pub executed: bool,                  // Execution flag
+    pub status: u8,                      // Transaction status
+    
+    // Safety
+    pub owner_set_seqno: u8,            // For owner set validation
 }
 
 impl Transaction {
+    // Space calculation
     pub fn space() -> usize {
-        8 +                              // discriminator
-        32 +                             // multisig
-        32 +                             // proposer
-        4 + 200 +                        // instruction_data with length prefix (estimate)
-        4 + (32 * 32) +                  // approvers vec (max 32 owners)
-        8 +                              // created_at
-        9 +                              // execute_after (Option<i64>)
-        1 +                              // executed
-        1 +                              // owner_set_seqno
-        1                                // status
+        8 +                     // Discriminator
+        32 +                    // multisig
+        32 +                    // proposer 
+        4 + 200 +              // instruction_data (estimated max)
+        4 + (32 * 32) +        // approvers (max 32)
+        8 +                     // created_at
+        9 +                     // execute_after (Option)
+        1 +                     // executed
+        1 +                     // status
+        1                       // owner_set_seqno
+    }
+
+    // Status helpers
+    pub fn is_pending(&self) -> bool {
+        self.status == TRANSACTION_STATUS_PENDING
+    }
+
+    pub fn is_executed(&self) -> bool {
+        self.status == TRANSACTION_STATUS_EXECUTED
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.status == TRANSACTION_STATUS_CANCELLED
     }
     
-    // Other helper methods remain unchanged
-    // ...
+    // Validation helpers
+    pub fn validate_can_execute(
+        &self,
+        multisig: &MultisigState,
+        current_time: i64
+    ) -> Result<()> {
+        // Check transaction is pending
+        require!(self.is_pending(), MultisigError::InvalidTransactionStatus);
+        
+        // Check not already executed
+        require!(!self.executed, MultisigError::AlreadyExecuted);
+        
+        // Check owner set hasn't changed
+        require!(
+            self.owner_set_seqno == multisig.owner_set_seqno,
+            MultisigError::OwnerSetChanged
+        );
+        
+        // Check enough approvals
+        require!(
+            self.approvers.len() >= multisig.threshold as usize,
+            MultisigError::NotEnoughApprovals
+        );
+
+        // Check timelock if present
+        if let Some(execute_after) = self.execute_after {
+            require!(
+                current_time >= execute_after,
+                MultisigError::TimelockNotPassed
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_can_approve(
+        &self,
+        approver: &Pubkey
+    ) -> Result<()> {
+        // not already approved
+        require!(
+            !self.approvers.contains(approver),
+            MultisigError::AlreadyApproved
+        );
+
+        // transaction is pending
+        require!(self.is_pending(), MultisigError::InvalidTransactionStatus);
+
+        Ok(())
+    }
 }

@@ -1,6 +1,6 @@
 // src/instructions/access_control/change_threshold.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction};
+use crate::state::{MultisigState, transaction};
 use crate::error::MultisigError;
 use crate::constants::{MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_CHANGE_THRESHOLD};
 use crate::instructions::access_control::state::ChangeThresholdInstruction;

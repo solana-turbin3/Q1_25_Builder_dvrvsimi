@@ -2,5 +2,6 @@
 mod multisig;
 mod transaction;
 
-pub use multisig::*;
-pub use transaction::*;
+
+pub use crate::instructions::multisig_management::state::*;
+pub use crate::instructions::transaction::state::*;
