@@ -1,18 +1,8 @@
 // src/state/multisig.rs
 use anchor_lang::prelude::*;
-
-#[account]
-pub struct MultisigState {
-    pub name: String,           // Multisig name
-    pub owners: Vec<Pubkey>,    // List of owners (max 32)
-    pub threshold: u8,          // Required signatures
-    pub nonce: u8,             // Transaction counter
-    pub owner_set_seqno: u8,    // Owner set version
-    pub bump: u8,              // PDA bump
-    pub initialized: bool,      // Initialization flag
-    pub vault_count: u8,       // Number of vaults created
-    pub vaults: Vec<VaultInfo>, // List of vaults and their mints
-}
+use crate::error::MultisigError;
+use crate::constants::{MAX_OWNERS, MAX_VAULTS_PER_MULTISIG};
+use super::role::Role;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct VaultInfo {
@@ -20,27 +10,39 @@ pub struct VaultInfo {
     pub vault: Pubkey,         // Vault token account address
 }
 
-impl MultisigState {
+#[account]
+pub struct MultisigState {
+    pub name: String,           // Multisig name
+    pub owners: Vec<Pubkey>,    // List of owners (max 32)
+    pub threshold: u8,          // Required signatures
+    pub nonce: u8,              // Transaction counter
+    pub owner_set_seqno: u8,    // Owner set version
+    pub bump: u8,               // PDA bump
+    pub initialized: bool,      // Initialization flag
+    pub vault_count: u8,        // Number of vaults created
+    pub vaults: Vec<VaultInfo>, // List of vaults and their mints
+    pub default_timelock: i64,  // Default timelock period in seconds
+    pub roles: Vec<Role>,       // Role-based access control
+}
 
-    // helper method to calculate the space required for the accounts
+impl MultisigState {
+    // Helper method to calculate the space required for the accounts
     pub fn space() -> usize {
-        8 +     // discriminator
-        4 +     // name length prefix
-        32 +    // name (max length)
-        4 +     // owners vec length prefix
-        32 * 32 + // owners (max 32)
-        1 +     // threshold
-        1 +     // nonce
-        1 +     // owner_set_seqno
-        1 +     // bump
-        1 +     // initialized
-        1 +     // vault_count
-        4 +     // vaults vec length prefix
-        (32 + 32) * 10  // vaults (max 10 vaults, mint + vault address)
-        8       // default timelock
+        8 +                    // discriminator
+        4 + MAX_NAME_LENGTH +  // name (String length prefix + max size)
+        4 + (32 * MAX_OWNERS) + // owners (Vec length prefix + max size)
+        1 +                    // threshold
+        1 +                    // nonce
+        1 +                    // owner_set_seqno
+        1 +                    // bump
+        1 +                    // initialized
+        1 +                    // vault_count
+        4 + (64 * MAX_VAULTS_PER_MULTISIG as usize) + // vaults (Vec prefix + (mint + vault) * max)
+        8 +                    // default_timelock
+        4 + (100 * 10)         // roles (Vec prefix + estimated size for up to 10 roles)
     }
 
-    // helper method to validate the threshold
+    // Helper method to validate the threshold
     pub fn validate_threshold(&self, new_threshold: u8) -> Result<()> {
         require!(new_threshold > 0, MultisigError::InvalidThreshold);
         require!(
@@ -50,26 +52,27 @@ impl MultisigState {
         Ok(())
     }
     
-    
-    // making the owner check consistent across all instructions that need it
+    // Check if a pubkey is an owner
     pub fn is_owner(&self, owner: &Pubkey) -> bool {
         self.owners.contains(owner)
     }
-
+    
+    // Check if a mint already has a vault
     pub fn has_vault_for_mint(&self, mint: Pubkey) -> bool {
         self.vaults.iter().any(|v| v.mint == mint)
     }
-
+    
+    // Add a new vault
     pub fn add_vault(&mut self, mint: Pubkey, vault: Pubkey) -> Result<()> {
-        // check if vault exists
+        // Check if vault exists
         require!(!self.has_vault_for_mint(mint), MultisigError::InvalidMint);
         
-        // check and increment counter
+        // Check and increment counter
         require!(self.vault_count < MAX_VAULTS_PER_MULTISIG, MultisigError::MaxVaultsReached);
         self.vault_count = self.vault_count.checked_add(1)
-            .ok_or(MultisigError::InvalidAmount)?;
+            .ok_or(MultisigError::ArithmeticOverflow)?;
             
-        // add vault info
+        // Add vault info
         self.vaults.push(VaultInfo {
             mint,
             vault,
@@ -78,9 +81,9 @@ impl MultisigState {
         Ok(())
     }
 
-    // helper method to validate the vault
+    // Validate a vault
     pub fn validate_vault(&self, vault: Pubkey, mint: Pubkey) -> Result<()> {
-        // find the vault info
+        // Find the vault info
         let vault_info = self.vaults
             .iter()
             .find(|v| v.vault == vault && v.mint == mint)
@@ -88,6 +91,34 @@ impl MultisigState {
             
         Ok(())
     }
-
-
+    
+    // Get a role by name
+    pub fn get_role_by_name(&self, name: &str) -> Option<&Role> {
+        self.roles.iter().find(|r| r.name == name)
+    }
+    
+    // Get roles for a user
+    pub fn get_roles_for_user(&self, user: &Pubkey) -> Vec<&Role> {
+        self.roles.iter().filter(|r| r.user == *user).collect()
+    }
+    
+    // Check if a user has a specific role
+    pub fn has_role(&self, user: &Pubkey, role_name: &str) -> bool {
+        self.roles.iter().any(|r| r.user == *user && r.name == role_name)
+    }
+    
+    // Add or update a role
+    pub fn set_role(&mut self, role: Role) -> Result<()> {
+        // Find if role already exists for this user
+        if let Some(pos) = self.roles.iter().position(|r| r.user == role.user && r.name == role.name) {
+            // Update existing role
+            self.roles[pos] = role;
+        } else {
+            // Add new role
+            require!(self.roles.len() < 32, MultisigError::TooManyRoles);
+            self.roles.push(role);
+        }
+        
+        Ok(())
+    }
 }

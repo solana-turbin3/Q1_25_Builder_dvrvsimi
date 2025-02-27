@@ -1,9 +1,12 @@
 // src/instructions/access_control/change_threshold.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, transaction};
+use crate::state::{MultisigState, Transaction};
 use crate::error::MultisigError;
-use crate::constants::{MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_CHANGE_THRESHOLD};
-use crate::instructions::access_control::state::ChangeThresholdInstruction;
+use crate::instructions::access_control::state::{
+    ACCESS_INSTRUCTION_CHANGE_THRESHOLD,
+    ChangeThresholdInstruction
+};
+use crate::state::MODULE_ACCESS_CONTROL;
 
 #[derive(Accounts)]
 pub struct ChangeThreshold<'info> {
@@ -16,7 +19,7 @@ pub struct ChangeThreshold<'info> {
     
     #[account(
         constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
-        constraint = transaction.executed @ MultisigError::NotExecuted,
+        constraint = transaction.is_executed() @ MultisigError::NotExecuted,
         constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
     )]
     pub transaction: Account<'info, Transaction>,
@@ -25,15 +28,15 @@ pub struct ChangeThreshold<'info> {
     pub executor: Signer<'info>,
 }
 
-pub fn change_threshold(ctx: Context<ChangeThreshold>) -> Result<()> {
-    let multisig = &mut ctx.accounts.multisig;
-    let transaction = &ctx.accounts.transaction;
+pub fn change_threshold(context: Context<ChangeThreshold>) -> Result<()> {
+    let multisig = &mut context.accounts.multisig;
+    let transaction = &context.accounts.transaction;
     let instruction_data = &transaction.instruction_data;
     
     // Validate instruction data
     require!(instruction_data.len() >= 2, ProgramError::InvalidInstructionData);
-    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, ProgramError::InvalidInstructionData);
-    require!(instruction_data[1] == ACCESS_INSTRUCTION_CHANGE_THRESHOLD, ProgramError::InvalidInstructionData);
+    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId.into());
+    require!(instruction_data[1] == ACCESS_INSTRUCTION_CHANGE_THRESHOLD, MultisigError::InvalidInstructionId.into());
     
     // Parse the change threshold instruction
     let change_threshold_data = ChangeThresholdInstruction::try_from_slice(&instruction_data[2..])
@@ -41,9 +44,16 @@ pub fn change_threshold(ctx: Context<ChangeThreshold>) -> Result<()> {
     
     // Validate and apply the new threshold
     multisig.validate_threshold(change_threshold_data.new_threshold)?;
+    
+    let old_threshold = multisig.threshold;
     multisig.threshold = change_threshold_data.new_threshold;
     
-    msg!("Threshold changed to {}", change_threshold_data.new_threshold);
+    msg!(
+        "Threshold changed from {} to {} by {}", 
+        old_threshold, 
+        change_threshold_data.new_threshold, 
+        context.accounts.executor.key()
+    );
     
     Ok(())
 }

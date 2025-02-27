@@ -13,9 +13,9 @@ pub struct ApproveTransaction<'info> {
 
     #[account(
         mut,
-        constraint = transaction.multisig == multisig.key()                     @ MultisigError::InvalidMultisigAddress,
-        constraint = !transaction.executed                                      @ MultisigError::AlreadyExecuted,
-        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno    @ MultisigError::OwnerSetChanged,
+        constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
+        constraint = transaction.is_pending() @ MultisigError::InvalidTransactionStatus,
+        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
     )]
     pub transaction: Account<'info, Transaction>,
 
@@ -24,23 +24,15 @@ pub struct ApproveTransaction<'info> {
 }
 
 pub fn approve_transaction(
-    ctx: Context<ApproveTransaction>
+    context: Context<ApproveTransaction>
 ) -> Result<()> {
+    let transaction = &mut context.accounts.transaction;
+    let approver_key = context.accounts.approver.key();
 
-    let transaction = &mut ctx.accounts.transaction;
-    let approver_key = ctx.accounts.approver.key();
-
-    // binary search instead
-    match transaction.approvers.binary_search(&approver_key) {
-        Ok(_) => return Err(MultisigError::AlreadyApproved.into()),
-        Err(pos) => {
-            // Keep approvers sorted for efficient lookups
-            transaction.approvers.insert(pos, approver_key);
-        }
-    }
-
-    // add approval
-    transaction.approvers.push(approver_key);
+    // Add approval using the helper method in Transaction
+    transaction.add_approver(approver_key)?;
+    
+    msg!("Transaction approved by {}", approver_key);
 
     Ok(())
 }

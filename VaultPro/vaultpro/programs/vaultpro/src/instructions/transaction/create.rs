@@ -7,8 +7,9 @@ use crate::error::MultisigError;
 #[instruction(instruction_data: Vec<u8>)]
 pub struct CreateTransaction<'info> {
     #[account(
-        constraint = multisig.initialized                   @ MultisigError::MultisigNotInitialized,
-        constraint = multisig.is_owner(&proposer.key())     @ MultisigError::NotAnOwner,
+        mut, // Make it mutable so we can update the nonce
+        constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
+        constraint = multisig.is_owner(&proposer.key()) @ MultisigError::NotAnOwner,
     )]
     pub multisig: Account<'info, MultisigState>,
 
@@ -27,28 +28,46 @@ pub struct CreateTransaction<'info> {
 
     #[account(mut)]
     pub proposer: Signer<'info>,
+    
     pub system_program: Program<'info, System>,
+    
     pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn create_transaction(
-    ctx: Context<CreateTransaction>,
+    context: Context<CreateTransaction>,
     instruction_data: Vec<u8>,
-    timelock: i64, // to get amap approvers to see the tx
+    timelock: Option<i64>, // Optional timelock period
 ) -> Result<()> {
-    let multisig = &ctx.accounts.multisig;
-    let transaction = &mut ctx.accounts.transaction;
+    let multisig = &mut context.accounts.multisig;
+    let transaction = &mut context.accounts.transaction;
     let clock = Clock::get()?;
 
-    // Initialize the transaction
-    transaction.multisig = multisig.key();
-    transaction.proposer = ctx.accounts.proposer.key();
-    transaction.instruction_data = instruction_data;
-    transaction.approvers = vec![ctx.accounts.proposer.key()]; // proposer auto-approves, i mean...
-    transaction.created_at = clock.unix_timestamp;
-    transaction.execute_after = clock.unix_timestamp + timelock;
-    transaction.executed = false;
-    transaction.owner_set_seqno = multisig.owner_set_seqno;
+    // Calculate execution time based on timelock
+    let execute_after = timelock.map(|duration| {
+        clock.unix_timestamp.checked_add(duration)
+            .ok_or(MultisigError::ArithmeticOverflow)
+    }).transpose()?;
+
+    // Initialize transaction using the helper method
+    transaction.initialize(
+        multisig.key(),
+        context.accounts.proposer.key(),
+        instruction_data,
+        multisig.owner_set_seqno,
+        clock.unix_timestamp,
+        execute_after,
+    );
+
+    // Update multisig nonce for next transaction
+    let old_nonce = multisig.nonce;
+    multisig.nonce = multisig.nonce
+        .checked_add(1)
+        .ok_or(MultisigError::ArithmeticOverflow)?;
+
+    msg!("Transaction created by {}, transaction nonce: {}", // maybe this should just be an event
+        context.accounts.proposer.key(),
+        old_nonce); // Show the current transaction's nonce
 
     Ok(())
 }

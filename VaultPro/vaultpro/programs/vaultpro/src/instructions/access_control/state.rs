@@ -1,6 +1,11 @@
 // src/instructions/access_control/state.rs
 use anchor_lang::prelude::*;
-use crate::constants::{MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_MANAGE_OWNER, ACCESS_INSTRUCTION_CHANGE_THRESHOLD, ACCESS_INSTRUCTION_SET_ROLE};
+use crate::state::{MODULE_ACCESS_CONTROL};
+
+// access control instruction identifiers
+pub const ACCESS_INSTRUCTION_MANAGE_OWNER: u8 = 0;
+pub const ACCESS_INSTRUCTION_CHANGE_THRESHOLD: u8 = 1;
+pub const ACCESS_INSTRUCTION_SET_ROLE: u8 = 2;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ManageOwnerInstruction {
@@ -54,19 +59,25 @@ pub fn serialize_change_threshold_instruction(
     Ok(data)
 }
 
-/// Helper function to serialize a manage owner instruction
-pub fn serialize_manage_owner_instruction(
-    owner: Pubkey,
-    is_add: bool,
+/// Helper function to serialize a set role instruction
+pub fn serialize_set_role_instruction(
+    user: Pubkey,
+    role_name: String,
+    can_propose: bool,
+    can_approve: bool,
+    can_execute: bool,
 ) -> Result<Vec<u8>> {
-    let manage_owner = ManageOwnerInstruction {
-        owner,
-        is_add,
+    let set_role = SetRoleInstruction {
+        user,
+        role_name,
+        can_propose,
+        can_approve,
+        can_execute,
     };
     
-    let mut data = vec![MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_MANAGE_OWNER];
-    let mut manage_owner_data = manage_owner.try_to_vec()?;
-    data.append(&mut manage_owner_data);
+    let mut data = vec![MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_SET_ROLE];
+    let mut set_role_data = set_role.try_to_vec()?;
+    data.append(&mut set_role_data);
     
     Ok(data)
 }

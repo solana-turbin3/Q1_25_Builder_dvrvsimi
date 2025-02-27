@@ -83,4 +83,19 @@ pub enum MultisigError {
     
     #[msg("Multisig is frozen")]
     MultisigFrozen,
+    
+    #[msg("Transaction has not been executed")]
+    NotExecuted,
+    
+    #[msg("Arithmetic overflow occurred")]
+    ArithmeticOverflow,
+    
+    #[msg("Too many roles (maximum 32)")]
+    TooManyRoles,
+    
+    #[msg("Role not found")]
+    RoleNotFound,
+    
+    #[msg("User doesn't have required permission")]
+    InsufficientPermission,
 }

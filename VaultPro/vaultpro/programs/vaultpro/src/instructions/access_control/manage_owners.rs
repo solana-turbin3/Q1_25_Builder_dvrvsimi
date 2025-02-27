@@ -1,9 +1,13 @@
-// src/instructions/access_control/manage_owners.rs
+    // src/instructions/access_control/manage_owners.rs
 use anchor_lang::prelude::*;
 use crate::state::{MultisigState, Transaction};
 use crate::error::MultisigError;
-use crate::constants::{MODULE_ACCESS_CONTROL, ACCESS_INSTRUCTION_MANAGE_OWNER, MAX_OWNERS};
-use crate::instructions::access_control::state::ManageOwnerInstruction;
+use crate::instructions::access_control::state::{
+    ACCESS_INSTRUCTION_MANAGE_OWNER,
+    ManageOwnerInstruction
+};
+use crate::state::MODULE_ACCESS_CONTROL;
+use crate::constants::MAX_OWNERS;
 
 #[derive(Accounts)]
 pub struct ManageOwner<'info> {
@@ -16,7 +20,7 @@ pub struct ManageOwner<'info> {
     
     #[account(
         constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
-        constraint = transaction.executed @ MultisigError::NotExecuted,
+        constraint = transaction.is_executed() @ MultisigError::NotExecuted,
         constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
     )]
     pub transaction: Account<'info, Transaction>,
@@ -25,15 +29,15 @@ pub struct ManageOwner<'info> {
     pub executor: Signer<'info>,
 }
 
-pub fn manage_owner(ctx: Context<ManageOwner>) -> Result<()> {
-    let multisig = &mut ctx.accounts.multisig;
-    let transaction = &ctx.accounts.transaction;
+pub fn manage_owner(context: Context<ManageOwner>) -> Result<()> {
+    let multisig = &mut context.accounts.multisig;
+    let transaction = &context.accounts.transaction;
     let instruction_data = &transaction.instruction_data;
     
     // Validate instruction data
     require!(instruction_data.len() >= 2, ProgramError::InvalidInstructionData);
-    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, ProgramError::InvalidInstructionData);
-    require!(instruction_data[1] == ACCESS_INSTRUCTION_MANAGE_OWNER, ProgramError::InvalidInstructionData);
+    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId.into());
+    require!(instruction_data[1] == ACCESS_INSTRUCTION_MANAGE_OWNER, MultisigError::InvalidInstructionId.into());
     
     // Parse the manage owner instruction
     let manage_owner_data = ManageOwnerInstruction::try_from_slice(&instruction_data[2..])
@@ -72,13 +76,18 @@ pub fn manage_owner(ctx: Context<ManageOwner>) -> Result<()> {
         
         // Check if we need to adjust the threshold
         if multisig.threshold > multisig.owners.len() as u8 {
+            let old_threshold = multisig.threshold;
             multisig.threshold = multisig.owners.len() as u8;
-            msg!("Threshold adjusted to {}", multisig.threshold);
+            msg!("Threshold automatically adjusted from {} to {}", old_threshold, multisig.threshold);
         }
     }
     
     // Increment the owner set sequence number
-    multisig.owner_set_seqno = multisig.owner_set_seqno.checked_add(1).unwrap_or(0);
+    multisig.owner_set_seqno = multisig.owner_set_seqno
+        .checked_add(1)
+        .ok_or(MultisigError::ArithmeticOverflow)?;
+    
+    msg!("Owner set changed by {}, new sequence: {}", context.accounts.executor.key(), multisig.owner_set_seqno);
     
     Ok(())
 }

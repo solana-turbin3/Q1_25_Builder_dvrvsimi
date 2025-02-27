@@ -1,6 +1,11 @@
 // src/instructions/token_management/state.rs
 use anchor_lang::prelude::*;
-use crate::constants::{MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_CREATE_VAULT, TOKEN_INSTRUCTION_DEPOSIT, TOKEN_INSTRUCTION_WITHDRAW};
+use crate::state::MODULE_TOKEN_MANAGEMENT;
+
+// Token management instruction identifiers
+pub const TOKEN_INSTRUCTION_CREATE_VAULT: u8 = 0;
+pub const TOKEN_INSTRUCTION_DEPOSIT: u8 = 1;
+pub const TOKEN_INSTRUCTION_WITHDRAW: u8 = 2;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct WithdrawInstruction {
