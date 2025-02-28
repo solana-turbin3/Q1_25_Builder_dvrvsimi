@@ -6,7 +6,8 @@ use super::multisig::MultisigState;
 // Constants for transaction status
 pub const TRANSACTION_STATUS_PENDING: u8 = 0;
 pub const TRANSACTION_STATUS_EXECUTED: u8 = 1;
-pub const TRANSACTION_STATUS_CANCELLED: u8 = 2;
+pub const TRANSACTION_STATUS_REJECTED: u8 = 2;
+pub const TRANSACTION_STATUS_EXPIRED: u8 = 3;
 
 #[account]
 pub struct Transaction {
@@ -19,10 +20,11 @@ pub struct Transaction {
     // Timing and status
     pub created_at: i64,                 // Creation timestamp
     pub execute_after: Option<i64>,      // Timelock expiry
-    pub status: u8,                      // Transaction status (PENDING, EXECUTED, CANCELLED)
+    pub status: u8,                      // Transaction status (PENDING, EXECUTED, CANCELLED, etc.)
     
     // Safety
     pub owner_set_seqno: u8,             // For owner set validation
+    pub bump: u8,                        // PDA bump
 }
 
 impl Transaction {
@@ -36,7 +38,8 @@ impl Transaction {
         8 +                     // created_at
         9 +                     // execute_after (Option<i64>)
         1 +                     // status
-        1                       // owner_set_seqno
+        1 +                     // owner_set_seqno
+        1                       // bump
     }
 
     // Initialize a new transaction
@@ -48,6 +51,7 @@ impl Transaction {
         owner_set_seqno: u8,
         created_at: i64,
         execute_after: Option<i64>,
+        bump: u8,
     ) {
         self.multisig = multisig;
         self.proposer = proposer;
@@ -57,6 +61,7 @@ impl Transaction {
         self.execute_after = execute_after;
         self.status = TRANSACTION_STATUS_PENDING;
         self.owner_set_seqno = owner_set_seqno;
+        self.bump = bump;
     }
 
     // Status helpers
@@ -68,8 +73,8 @@ impl Transaction {
         self.status == TRANSACTION_STATUS_EXECUTED
     }
 
-    pub fn is_cancelled(&self) -> bool {
-        self.status == TRANSACTION_STATUS_CANCELLED
+    pub fn is_rejected(&self) -> bool {
+        self.status == TRANSACTION_STATUS_REJECTED
     }
     
     // Mark transaction as executed
@@ -77,9 +82,13 @@ impl Transaction {
         self.status = TRANSACTION_STATUS_EXECUTED;
     }
     
-    // Mark transaction as cancelled
-    pub fn mark_as_cancelled(&mut self) {
-        self.status = TRANSACTION_STATUS_CANCELLED;
+    // Mark transaction as rejected
+    pub fn mark_as_rejected(&mut self) {
+        self.status = TRANSACTION_STATUS_REJECTED;
+    }
+    
+    pub fn mark_as_expired(&mut self) {
+        self.status = TRANSACTION_STATUS_EXPIRED;
     }
     
     // Validation helpers

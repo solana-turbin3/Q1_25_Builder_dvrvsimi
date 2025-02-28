@@ -31,12 +31,13 @@ pub struct InitializeMultisig<'info> {
 }
 
 pub fn initialize_multisig(
-    ctx: Context<InitializeMultisig>,
+    context: Context<InitializeMultisig>,
     name: String,
     owners: Vec<Pubkey>,
     threshold: u8,
 ) -> Result<()> {
-    let multisig = &mut ctx.accounts.multisig;
+    let multisig = &mut context.accounts.multisig;
+    let clock = Clock::get()?;
     
     // validation
     require!(threshold > 0, MultisigError::InvalidThreshold);
@@ -52,27 +53,31 @@ pub fn initialize_multisig(
     require!(sorted_owners.len() == owners.len(), MultisigError::DuplicateOwner);
 
     // Initialize the multisig state
-    multisig.name = name;
-    multisig.owners = owners;
+    multisig.name = name.clone();
+    multisig.owners = owners.clone();
     multisig.threshold = threshold;
     multisig.nonce = 0;
     multisig.owner_set_seqno = 0;
-    multisig.bump = *ctx.bumps.get("multisig").unwrap();
+    multisig.bump = *context.bumps.get("multisig").unwrap();
     multisig.initialized = true;
     multisig.default_timelock = 0; // Default to no timelock
+    multisig.frozen = false;
 
-    // Initialize vault tracking
+    // Initialize empty collections
     multisig.vault_count = 0;
     multisig.vaults = Vec::new();
+    multisig.roles = Vec::new();
 
     // Emit initialization event
     emit!(MultisigInitializedEvent {
         multisig: multisig.key(),
-        name: multisig.name.clone(),
-        owners: multisig.owners.clone(),
-        threshold: multisig.threshold,
-        created_at: Clock::get()?.unix_timestamp,
+        name,
+        owners,
+        threshold,
+        created_at: clock.unix_timestamp,
     });
+    
+    msg!("Multisig initialized: {}", name);
 
     Ok(())
 }

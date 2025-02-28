@@ -1,12 +1,14 @@
 // src/instructions/access_control/set_role.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction, Role, RoleType, RolePermission};
+use crate::state::{MultisigState, Transaction, RoleType, Role, RolePermission};
 use crate::error::MultisigError;
 use crate::instructions::access_control::state::{
     ACCESS_INSTRUCTION_SET_ROLE,
     SetRoleInstruction
 };
 use crate::state::MODULE_ACCESS_CONTROL;
+use crate::event::RoleChangedEvent;
+use crate::constants::MAX_ROLES_PER_MULTISIG;
 
 #[derive(Accounts)]
 pub struct SetRole<'info> {
@@ -14,6 +16,7 @@ pub struct SetRole<'info> {
         mut,
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
         constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
+        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
     )]
     pub multisig: Account<'info, MultisigState>,
     
@@ -24,7 +27,10 @@ pub struct SetRole<'info> {
     )]
     pub transaction: Account<'info, Transaction>,
     
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = multisig.user_has_permission(&executor.key(), RolePermission::ModifyRoles) @ MultisigError::InsufficientPermission,
+    )]
     pub executor: Signer<'info>,
 }
 
@@ -32,21 +38,16 @@ pub fn set_role(context: Context<SetRole>) -> Result<()> {
     let multisig = &mut context.accounts.multisig;
     let transaction = &context.accounts.transaction;
     let instruction_data = &transaction.instruction_data;
+    let clock = Clock::get()?;
     
     // Validate instruction data
-    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData.into());
-    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId.into());
-    require!(instruction_data[1] == ACCESS_INSTRUCTION_SET_ROLE, MultisigError::InvalidInstructionId.into());
+    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
+    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId);
+    require!(instruction_data[1] == ACCESS_INSTRUCTION_SET_ROLE, MultisigError::InvalidInstructionId);
     
     // Parse the set role instruction
     let set_role_data = SetRoleInstruction::try_from_slice(&instruction_data[2..])
         .map_err(|_| MultisigError::InvalidInstructionData)?;
-    
-    // Verify executor has role management permission
-    require!(
-        multisig.user_has_permission(&context.accounts.executor.key(), RolePermission::ModifyRoles),
-        MultisigError::InsufficientPermission
-    );
     
     // Convert role type from u8
     let role_type = RoleType::from_u8(set_role_data.role_type)
@@ -73,7 +74,7 @@ pub fn set_role(context: Context<SetRole>) -> Result<()> {
         msg!("Updated role {:?} for user {}", role_type, set_role_data.user);
     } else {
         // Add new role
-        require!(multisig.roles.len() < 32, MultisigError::TooManyRoles);
+        require!(multisig.roles.len() < MAX_ROLES_PER_MULTISIG, MultisigError::TooManyRoles);
         multisig.roles.push(role);
         msg!("Added role {:?} for user {}", role_type, set_role_data.user);
     }
@@ -88,21 +89,7 @@ pub fn set_role(context: Context<SetRole>) -> Result<()> {
         can_execute: set_role_data.can_execute,
         can_modify_roles: set_role_data.can_modify_roles,
         executed_by: context.accounts.executor.key(),
-        executed_at: Clock::get()?.unix_timestamp,
+        executed_at: clock.unix_timestamp,
     });
     
     Ok(())
-}
-
-#[event]
-pub struct RoleChangedEvent {
-    pub multisig: Pubkey,
-    pub user: Pubkey,
-    pub role_type: u8,
-    pub can_propose: bool,
-    pub can_approve: bool,
-    pub can_execute: bool,
-    pub can_modify_roles: bool,
-    pub executed_by: Pubkey,
-    pub executed_at: i64,
-}

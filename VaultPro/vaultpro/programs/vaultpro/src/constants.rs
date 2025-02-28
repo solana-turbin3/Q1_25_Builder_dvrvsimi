@@ -3,8 +3,10 @@
 pub const MAX_VAULTS_PER_MULTISIG: u8 = 10;
 pub const MAX_OWNERS: usize = 32;
 pub const MAX_NAME_LENGTH: usize = 32;
+pub const MAX_ROLES_PER_MULTISIG: usize = 32;
+pub const ANCHOR_DISCRIMINATOR: usize = 8;
 
-// Module identifiers
+// Module identifiers - must match the state/mod.rs constants
 pub const MODULE_TOKEN_MANAGEMENT: u8 = 0;
 pub const MODULE_ACCESS_CONTROL: u8 = 1;
 pub const MODULE_MULTISIG_MANAGEMENT: u8 = 2;
@@ -26,12 +28,11 @@ pub const MULTISIG_INSTRUCTION_SET_TIMELOCK: u8 = 1;
 pub const MULTISIG_INSTRUCTION_FREEZE_VAULT: u8 = 2;
 
 // Transaction Instructions
-pub const TRANSACTION_INSTRUCTION_CANCEL: u8 = 0;
+pub const TRANSACTION_INSTRUCTION_REJECT: u8 = 0;
 pub const TRANSACTION_INSTRUCTION_REVOKE_APPROVAL: u8 = 1;
 
-// Constants for transaction status
+// Constants for transaction status - must match the state/transaction.rs constants
 pub const TRANSACTION_STATUS_PENDING: u8 = 0;
 pub const TRANSACTION_STATUS_EXECUTED: u8 = 1;
 pub const TRANSACTION_STATUS_REJECTED: u8 = 2;
 pub const TRANSACTION_STATUS_EXPIRED: u8 = 3;
-pub const TRANSACTION_STATUS_INVALIDATED: u8 = 4;

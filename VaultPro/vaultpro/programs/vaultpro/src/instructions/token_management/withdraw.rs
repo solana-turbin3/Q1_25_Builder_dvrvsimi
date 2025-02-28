@@ -1,7 +1,7 @@
 // src/instructions/token_management/withdraw.rs
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint};
-use crate::state::{MultisigState, Transaction};
+use crate::state::{MultisigState, Transaction, RolePermission};
 use crate::event::WithdrawEvent;
 use crate::error::MultisigError;
 use crate::instructions::token_management::state::{
@@ -15,13 +15,14 @@ pub struct Withdraw<'info> {
     #[account(
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
         constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
+        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
     )]
     pub multisig: Account<'info, MultisigState>,
     
     #[account(
-        mut,
         constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
         constraint = transaction.is_executed() @ MultisigError::NotExecuted,
+        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
     )]
     pub transaction: Account<'info, Transaction>,
     
@@ -55,7 +56,10 @@ pub struct Withdraw<'info> {
     /// CHECK: Validated through the recipient_token_account
     pub recipient: UncheckedAccount<'info>,
     
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = multisig.user_has_permission(&executor.key(), RolePermission::Execute) @ MultisigError::InsufficientPermission,
+    )]
     pub executor: Signer<'info>,
     
     #[account(address = token::ID @ MultisigError::InvalidProgramId)]
@@ -65,11 +69,12 @@ pub struct Withdraw<'info> {
 pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
     let transaction = &context.accounts.transaction;
     let instruction_data = &transaction.instruction_data;
+    let clock = Clock::get()?;
     
     // Validate the instruction data matches what we expect
-    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData.into());
-    require!(instruction_data[0] == MODULE_TOKEN_MANAGEMENT, MultisigError::InvalidModuleId.into());
-    require!(instruction_data[1] == TOKEN_INSTRUCTION_WITHDRAW, MultisigError::InvalidInstructionId.into());
+    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
+    require!(instruction_data[0] == MODULE_TOKEN_MANAGEMENT, MultisigError::InvalidModuleId);
+    require!(instruction_data[1] == TOKEN_INSTRUCTION_WITHDRAW, MultisigError::InvalidInstructionId);
     
     // Parse the withdrawal instruction data
     let withdraw_data = WithdrawInstruction::try_from_slice(&instruction_data[2..])
@@ -87,7 +92,7 @@ pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
     );
     
     // Ensure amount is greater than zero
-    require!(withdraw_data.amount > 0, MultisigError::InvalidAmount);
+    require!(withdraw_data.amount > 0, MultisigError::ZeroAmount);
     
     // Ensure vault has sufficient funds
     require!(
@@ -124,7 +129,7 @@ pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
         recipient: withdraw_data.recipient,
         mint: withdraw_data.token_mint,
         amount: withdraw_data.amount,
-        created_at: Clock::get()?.unix_timestamp,
+        created_at: clock.unix_timestamp,
     });
 
     msg!(

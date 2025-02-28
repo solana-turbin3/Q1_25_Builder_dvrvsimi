@@ -1,13 +1,16 @@
 // src/instructions/transaction/approve.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction};
+use crate::state::{MultisigState, Transaction, RolePermission};
 use crate::error::MultisigError;
+use crate::event::TransactionApprovedEvent;
 
 #[derive(Accounts)]
 pub struct ApproveTransaction<'info> {
     #[account(
-        constraint = multisig.initialized                   @ MultisigError::MultisigNotInitialized,
-        constraint = multisig.is_owner(&approver.key())     @ MultisigError::NotAnOwner,
+        constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
+        constraint = multisig.is_owner(&approver.key()) || 
+                     multisig.user_has_permission(&approver.key(), RolePermission::Approve) @ MultisigError::InsufficientPermission,
+        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
     )]
     pub multisig: Account<'info, MultisigState>,
 
@@ -28,9 +31,19 @@ pub fn approve_transaction(
 ) -> Result<()> {
     let transaction = &mut context.accounts.transaction;
     let approver_key = context.accounts.approver.key();
+    let clock = Clock::get()?;
 
     // Add approval using the helper method in Transaction
     transaction.add_approver(approver_key)?;
+    
+    // Emit event
+    emit!(TransactionApprovedEvent {
+        multisig: context.accounts.multisig.key(),
+        transaction: transaction.key(),
+        approver: approver_key,
+        approved_at: clock.unix_timestamp,
+        approval_count: transaction.approvers.len() as u8,
+    });
     
     msg!("Transaction approved by {}", approver_key);
 

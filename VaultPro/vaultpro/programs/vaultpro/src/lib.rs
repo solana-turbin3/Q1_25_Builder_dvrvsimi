@@ -9,7 +9,7 @@ pub mod event;
 
 use instructions::*;
 
-declare_id!("");
+declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
 
 #[program]
 pub mod vaultpro {
@@ -17,34 +17,58 @@ pub mod vaultpro {
 
     // Multisig Management instructions
     pub fn initialize_multisig(
-        ctx: Context<multisig_management::InitializeMultisig>, 
+        context: Context<multisig_management::InitializeMultisig>, 
         name: String,
         owners: Vec<Pubkey>,
         threshold: u8
     ) -> Result<()> {
-        multisig_management::initialize_multisig(ctx, name, owners, threshold)
+        multisig_management::initialize_multisig(context, name, owners, threshold)
     }
 
     // Token management instructions
-    pub fn create_token_vault(ctx: Context<token_management::CreateTokenVault>) -> Result<()> {
-        token_management::create_token_vault(ctx)
+    pub fn create_token_vault(context: Context<token_management::CreateTokenVault>) -> Result<()> {
+        token_management::create_token_vault(context)
     }
 
-    pub fn deposit(ctx: Context<token_management::Deposit>, amount: u64) -> Result<()> {
-        token_management::deposit(ctx, amount)
+    pub fn deposit(context: Context<token_management::Deposit>, amount: u64) -> Result<()> {
+        token_management::deposit(context, amount)
     }
 
-    pub fn withdraw(ctx: Context<token_management::Withdraw>) -> Result<()> {
-        token_management::withdraw(ctx)
+    pub fn withdraw(context: Context<token_management::Withdraw>) -> Result<()> {
+        token_management::withdraw(context)
     }
     
-    pub fn change_threshold(ctx: Context<access_control::ChangeThreshold>) -> Result<()> {
-        access_control::change_threshold(ctx)
+    // Access control instructions
+    pub fn change_threshold(context: Context<access_control::ChangeThreshold>) -> Result<()> {
+        access_control::change_threshold(context)
     }
 
-    pub fn manage_owner(ctx: Context<access_control::ManageOwner>) -> Result<()> {
-        access_control::manage_owner(ctx)
+    pub fn manage_owner(context: Context<access_control::ManageOwner>) -> Result<()> {
+        access_control::manage_owner(context)
     }
     
-    // the rest here
+    pub fn set_role(context: Context<access_control::SetRole>) -> Result<()> {
+        access_control::set_role(context)
+    }
+    
+    // Transaction instructions
+    pub fn create_transaction(
+        context: Context<transaction::CreateTransaction>,
+        instruction_data: Vec<u8>,
+        timelock: Option<i64>
+    ) -> Result<()> {
+        transaction::create_transaction(context, instruction_data, timelock)
+    }
+    
+    pub fn approve_transaction(context: Context<transaction::ApproveTransaction>) -> Result<()> {
+        transaction::approve_transaction(context)
+    }
+    
+    pub fn execute_transaction(context: Context<transaction::ExecuteTransaction>) -> Result<()> {
+        transaction::execute_transaction(context)
+    }
+    
+    pub fn reject_transaction(context: Context<transaction::RejectTransaction>) -> Result<()> {
+        transaction::reject_transaction(context)
+    }
 }

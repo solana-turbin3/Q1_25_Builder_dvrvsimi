@@ -1,29 +1,31 @@
 // src/instructions/transaction/execute.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction};
+use crate::state::{MultisigState, Transaction, RolePermission};
 use crate::error::MultisigError;
-use crate::state::{MODULE_TOKEN_MANAGEMENT, MODULE_ACCESS_CONTROL, MODULE_MULTISIG_MANAGEMENT};
-use crate::instructions::token_management::state::{
-    TOKEN_INSTRUCTION_WITHDRAW,
-    TOKEN_INSTRUCTION_DEPOSIT,
-    TOKEN_INSTRUCTION_CREATE_VAULT
-};
-use crate::instructions::access_control::state::{
+use crate::constants::{
+    MODULE_TOKEN_MANAGEMENT, 
+    MODULE_ACCESS_CONTROL, 
+    MODULE_MULTISIG_MANAGEMENT,
+    MODULE_TRANSACTION,
     ACCESS_INSTRUCTION_MANAGE_OWNER,
     ACCESS_INSTRUCTION_CHANGE_THRESHOLD,
-    ACCESS_INSTRUCTION_SET_ROLE
-};
-use crate::instructions::multisig_management::state::{
-    MULTISIG_INSTRUCTION_INITIALIZE,
+    ACCESS_INSTRUCTION_SET_ROLE,
+    TOKEN_INSTRUCTION_WITHDRAW,
+    TOKEN_INSTRUCTION_DEPOSIT,
+    TOKEN_INSTRUCTION_CREATE_VAULT,
     MULTISIG_INSTRUCTION_SET_TIMELOCK,
-    MULTISIG_INSTRUCTION_FREEZE_VAULT
+    MULTISIG_INSTRUCTION_FREEZE_VAULT,
+    TRANSACTION_INSTRUCTION_REJECT,
+    TRANSACTION_INSTRUCTION_REVOKE_APPROVAL
 };
+use crate::event::TransactionExecutedEvent;
 
 #[derive(Accounts)]
 pub struct ExecuteTransaction<'info> {
     #[account(
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
         constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
+        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
     )]
     pub multisig: Account<'info, MultisigState>,
 
@@ -36,18 +38,17 @@ pub struct ExecuteTransaction<'info> {
     )]
     pub transaction: Account<'info, Transaction>,
 
-    /// The original proposer
     #[account(
-        mut,
         constraint = proposer.key() == transaction.proposer @ MultisigError::InvalidProposer
     )]
     pub proposer: UncheckedAccount<'info>,
 
-    /// The account executing this transaction (must be an owner)
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = multisig.user_has_permission(&executor.key(), RolePermission::Execute) @ MultisigError::InsufficientPermission,
+    )]
     pub executor: Signer<'info>,
     
-    /// We need this to check the timelock
     pub system_program: Program<'info, System>,
 }
 
@@ -61,7 +62,7 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
     
     // Get instruction info from the transaction data
     let instruction_data = &transaction.instruction_data;
-    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData.into());
+    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
     
     let module_id = instruction_data[0];
     let instruction_id = instruction_data[1];
@@ -74,23 +75,23 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
         context.accounts.executor.key()
     );
     
-    // Direct invocation based on module type - this is the key improvement
-    // Instead of just marking it as executed, we'll process the instruction directly
+    // For this version, we just mark the transaction as executed
+    // In a real implementation, the actual execution would be handled by separate
+    // instruction handlers that would be invoked here using CPI
     match module_id {
         MODULE_TOKEN_MANAGEMENT => {
             match instruction_id {
                 TOKEN_INSTRUCTION_WITHDRAW => {
-                    // We need to invoke the withdraw CPI here directly
                     msg!("Executing withdraw instruction");
-                    // Note: In a real implementation, we would invoke the actual token transfer here
+                    // This would invoke token_management::withdraw
                 },
                 TOKEN_INSTRUCTION_DEPOSIT => {
                     msg!("Executing deposit instruction");
-                    // Direct deposit handling
+                    // This would invoke token_management::deposit
                 },
                 TOKEN_INSTRUCTION_CREATE_VAULT => {
                     msg!("Executing create vault instruction");
-                    // Direct vault creation
+                    // This would invoke token_management::create_vault
                 },
                 _ => return Err(MultisigError::InvalidInstructionId.into())
             }
@@ -99,15 +100,15 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
             match instruction_id {
                 ACCESS_INSTRUCTION_MANAGE_OWNER => {
                     msg!("Executing manage owner instruction");
-                    // Direct owner management
+                    // This would invoke access_control::manage_owner
                 },
                 ACCESS_INSTRUCTION_CHANGE_THRESHOLD => {
                     msg!("Executing change threshold instruction");
-                    // Direct threshold change
+                    // This would invoke access_control::change_threshold
                 },
                 ACCESS_INSTRUCTION_SET_ROLE => {
                     msg!("Executing set role instruction");
-                    // Direct role setting
+                    // This would invoke access_control::set_role
                 },
                 _ => return Err(MultisigError::InvalidInstructionId.into())
             }
@@ -116,11 +117,24 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
             match instruction_id {
                 MULTISIG_INSTRUCTION_SET_TIMELOCK => {
                     msg!("Executing set timelock instruction");
-                    // Direct timelock setting
+                    // This would invoke multisig_management::set_timelock
                 },
                 MULTISIG_INSTRUCTION_FREEZE_VAULT => {
                     msg!("Executing freeze vault instruction");
-                    // Direct vault freezing
+                    // This would invoke multisig_management::freeze_vault
+                },
+                _ => return Err(MultisigError::InvalidInstructionId.into())
+            }
+        },
+        MODULE_TRANSACTION => {
+            match instruction_id {
+                TRANSACTION_INSTRUCTION_REJECT => {
+                    msg!("Executing reject transaction instruction");
+                    // This would invoke transaction::reject
+                },
+                TRANSACTION_INSTRUCTION_REVOKE_APPROVAL => {
+                    msg!("Executing revoke approval instruction");
+                    // This would invoke transaction::revoke_approval
                 },
                 _ => return Err(MultisigError::InvalidInstructionId.into())
             }
@@ -128,10 +142,17 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
         _ => return Err(MultisigError::InvalidModuleId.into())
     }
 
-    // mark tx as executed now that we've processed the instruction
+    // mark tx as executed
     transaction.mark_as_executed();
+    
+    // Emit execution event
+    emit!(TransactionExecutedEvent {
+        multisig: multisig.key(),
+        transaction: transaction.key(),
+        executor: context.accounts.executor.key(),
+        executed_at: clock.unix_timestamp,
+    });
     
     msg!("Transaction executed successfully by {}", context.accounts.executor.key());
 
     Ok(())
-}

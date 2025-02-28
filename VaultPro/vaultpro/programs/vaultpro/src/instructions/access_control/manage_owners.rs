@@ -1,105 +1,89 @@
-// src/instructions/access_control/manage_roles.rs
+// src/instructions/access_control/manage_owners.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction, Role, RoleType, RolePermission};
+use crate::state::{MultisigState, Transaction, RolePermission};
 use crate::error::MultisigError;
+use crate::instructions::access_control::state::{
+    ACCESS_INSTRUCTION_MANAGE_OWNER,
+    ManageOwnerInstruction
+};
+use crate::state::MODULE_ACCESS_CONTROL;
+use crate::event::{OwnerAddedEvent, OwnerRemovedEvent};
 
 #[derive(Accounts)]
-pub struct ManageRoles<'info> {
+pub struct ManageOwner<'info> {
     #[account(
         mut,
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
-        constraint = multisig.is_owner(&admin.key()) @ MultisigError::NotAnOwner,
+        constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
+        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
     )]
     pub multisig: Account<'info, MultisigState>,
     
+    #[account(
+        constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
+        constraint = transaction.is_executed() @ MultisigError::NotExecuted,
+        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
+    )]
+    pub transaction: Account<'info, Transaction>,
+    
     #[account(mut)]
-    pub admin: Signer<'info>,
+    pub executor: Signer<'info>,
 }
 
-// Define parameters for direct role assignment (not through a transaction)
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ManageRolesParams {
-    pub user: Pubkey,
-    pub role_type: u8,
-    pub add_role: bool, // true = add/update, false = remove
-    pub permissions: Option<RolePermissions>, // Only needed for add/update
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct RolePermissions {
-    pub can_propose: bool,
-    pub can_approve: bool,
-    pub can_execute: bool,
-    pub can_modify_roles: bool,
-}
-
-pub fn manage_roles(
-    context: Context<ManageRoles>,
-    params: ManageRolesParams,
-) -> Result<()> {
+pub fn manage_owner(context: Context<ManageOwner>) -> Result<()> {
     let multisig = &mut context.accounts.multisig;
-    let admin = &context.accounts.admin;
+    let transaction = &context.accounts.transaction;
+    let instruction_data = &transaction.instruction_data;
+    let clock = Clock::get()?;
     
-    // Verify admin has role management permission
-    let admin_has_permission = multisig.roles
-        .iter()
-        .any(|role| 
-            role.user == admin.key() && 
-            role.has_permission(RolePermission::ModifyRoles)
-        );
+    // Validate the instruction data
+    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
+    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId);
+    require!(instruction_data[1] == ACCESS_INSTRUCTION_MANAGE_OWNER, MultisigError::InvalidInstructionId);
     
+    // Verify executor has permission to manage owners
     require!(
-        admin_has_permission || multisig.owners.contains(&admin.key()),
+        multisig.user_has_permission(&context.accounts.executor.key(), RolePermission::ModifyRoles),
         MultisigError::InsufficientPermission
     );
     
-    // Convert role type from u8 to enum
-    let role_type = RoleType::from_u8(params.role_type)
-        .ok_or(MultisigError::InvalidInstructionData)?;
+    // Parse the manage owner instruction data
+    let manage_owner_data = ManageOwnerInstruction::try_from_slice(&instruction_data[2..])
+        .map_err(|_| MultisigError::InvalidInstructionData)?;
     
-    if params.add_role {
-        // Adding or updating a role
-        require!(params.permissions.is_some(), MultisigError::InvalidInstructionData);
-        let permissions = params.permissions.unwrap();
+    let owner = manage_owner_data.owner;
+    let is_add = manage_owner_data.is_add;
+    
+    // Perform the owner management operation
+    if is_add {
+        // Add owner
+        multisig.add_owner(owner)?;
         
-        // Create the new role
-        let role = Role::new(
-            role_type,
-            params.user,
-            permissions.can_propose,
-            permissions.can_approve,
-            permissions.can_execute,
-            permissions.can_modify_roles,
-        );
+        // Emit owner added event
+        emit!(OwnerAddedEvent {
+            multisig: multisig.key(),
+            owner,
+            added_by: context.accounts.executor.key(),
+            added_at: clock.unix_timestamp,
+            new_owner_count: multisig.owners.len() as u8,
+        });
         
-        // Find if the role already exists
-        let role_position = multisig.roles
-            .iter()
-            .position(|r| r.user == params.user && r.role_type == role_type);
-        
-        if let Some(pos) = role_position {
-            // Update existing role
-            multisig.roles[pos] = role;
-            msg!("Updated role {:?} for user {}", role_type, params.user);
-        } else {
-            // Add new role
-            require!(multisig.roles.len() < 32, MultisigError::TooManyRoles);
-            multisig.roles.push(role);
-            msg!("Added role {:?} for user {}", role_type, params.user);
-        }
+        msg!("Owner {} added by {}", owner, context.accounts.executor.key());
     } else {
-        // Removing a role
-        let role_position = multisig.roles
-            .iter()
-            .position(|r| r.user == params.user && r.role_type == role_type)
-            .ok_or(MultisigError::RoleNotFound)?;
+        // Remove owner
+        multisig.remove_owner(&owner)?;
         
-        // Remove the role
-        multisig.roles.remove(role_position);
-        msg!("Removed role {:?} from user {}", role_type, params.user);
+        // Emit owner removed event
+        emit!(OwnerRemovedEvent {
+            multisig: multisig.key(),
+            owner,
+            removed_by: context.accounts.executor.key(),
+            removed_at: clock.unix_timestamp,
+            new_owner_count: multisig.owners.len() as u8,
+        });
+        
+        msg!("Owner {} removed by {}", owner, context.accounts.executor.key());
     }
-    
-    // Event emission would be here
     
     Ok(())
 }

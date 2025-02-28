@@ -1,6 +1,6 @@
 // src/instructions/access_control/state.rs
 use anchor_lang::prelude::*;
-use crate::state::{MODULE_ACCESS_CONTROL};
+use crate::state::MODULE_ACCESS_CONTROL;
 
 // Access control instruction identifiers
 pub const ACCESS_INSTRUCTION_MANAGE_OWNER: u8 = 0;

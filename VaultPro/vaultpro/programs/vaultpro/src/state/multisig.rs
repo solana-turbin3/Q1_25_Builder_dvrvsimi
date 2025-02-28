@@ -2,13 +2,8 @@
 use anchor_lang::prelude::*;
 use crate::error::MultisigError;
 use crate::constants::{MAX_OWNERS, MAX_VAULTS_PER_MULTISIG};
-use super::role::Role;
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct VaultInfo {
-    pub mint: Pubkey,          // Token mint address
-    pub vault: Pubkey,         // Vault token account address
-}
+use super::token_vault::VaultInfo;
+use super::access::{Role, RoleType, RolePermission};
 
 #[account]
 pub struct MultisigState {
@@ -23,6 +18,7 @@ pub struct MultisigState {
     pub vaults: Vec<VaultInfo>, // List of vaults and their mints
     pub default_timelock: i64,  // Default timelock period in seconds
     pub roles: Vec<Role>,       // Role-based access control
+    pub frozen: bool,           // Emergency freeze flag
 }
 
 impl MultisigState {
@@ -39,7 +35,8 @@ impl MultisigState {
         1 +                    // vault_count
         4 + (64 * MAX_VAULTS_PER_MULTISIG as usize) + // vaults (Vec prefix + (mint + vault) * max)
         8 +                    // default_timelock
-        4 + (100 * 10)         // roles (Vec prefix + estimated size for up to 10 roles)
+        4 + (100 * 10) +       // roles (Vec prefix + estimated size for up to 10 roles)
+        1                       // frozen
     }
 
     // Helper method to validate the threshold
@@ -62,6 +59,11 @@ impl MultisigState {
         self.vaults.iter().any(|v| v.mint == mint)
     }
     
+    // Get a vault for a specific mint
+    pub fn get_vault_for_mint(&self, mint: Pubkey) -> Option<&VaultInfo> {
+        self.vaults.iter().find(|v| v.mint == mint)
+    }
+    
     // Add a new vault
     pub fn add_vault(&mut self, mint: Pubkey, vault: Pubkey) -> Result<()> {
         // Check if vault exists
@@ -73,10 +75,7 @@ impl MultisigState {
             .ok_or(MultisigError::ArithmeticOverflow)?;
             
         // Add vault info
-        self.vaults.push(VaultInfo {
-            mint,
-            vault,
-        });
+        self.vaults.push(VaultInfo::new(mint, vault));
         
         Ok(())
     }
@@ -115,5 +114,55 @@ impl MultisigState {
             .any(|r| r.has_permission(permission))
     }
     
-
+    // Add a new owner to the multisig
+    pub fn add_owner(&mut self, owner: Pubkey) -> Result<()> {
+        // Check for duplicate owner
+        require!(!self.is_owner(&owner), MultisigError::DuplicateOwner);
+        
+        // Check owner count
+        require!(self.owners.len() < MAX_OWNERS, MultisigError::TooManyOwners);
+        
+        // Add owner and increment owner set sequence number
+        self.owners.push(owner);
+        self.owner_set_seqno = self.owner_set_seqno
+            .checked_add(1)
+            .ok_or(MultisigError::ArithmeticOverflow)?;
+            
+        Ok(())
+    }
+    
+    // Remove an owner from the multisig
+    pub fn remove_owner(&mut self, owner: &Pubkey) -> Result<()> {
+        // Check owner exists
+        require!(self.is_owner(owner), MultisigError::NotAnOwner);
+        
+        // Check minimum owner count (can't remove the last owner)
+        require!(self.owners.len() > 1, MultisigError::InvalidThreshold);
+        
+        // Remove owner
+        let owner_pos = self.owners.iter().position(|o| o == owner).unwrap();
+        self.owners.remove(owner_pos);
+        
+        // Increment owner set sequence number
+        self.owner_set_seqno = self.owner_set_seqno
+            .checked_add(1)
+            .ok_or(MultisigError::ArithmeticOverflow)?;
+            
+        // Check threshold is still valid
+        if self.threshold > self.owners.len() as u8 {
+            self.threshold = self.owners.len() as u8;
+        }
+        
+        Ok(())
+    }
+    
+    // Check if the multisig is frozen
+    pub fn is_frozen(&self) -> bool {
+        self.frozen
+    }
+    
+    // Set the frozen state
+    pub fn set_frozen(&mut self, frozen: bool) {
+        self.frozen = frozen;
+    }
 }
