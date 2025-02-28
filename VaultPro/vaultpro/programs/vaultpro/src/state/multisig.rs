@@ -92,33 +92,28 @@ impl MultisigState {
         Ok(())
     }
     
-    // Get a role by name
-    pub fn get_role_by_name(&self, name: &str) -> Option<&Role> {
-        self.roles.iter().find(|r| r.name == name)
-    }
-    
     // Get roles for a user
     pub fn get_roles_for_user(&self, user: &Pubkey) -> Vec<&Role> {
         self.roles.iter().filter(|r| r.user == *user).collect()
     }
     
-    // Check if a user has a specific role
-    pub fn has_role(&self, user: &Pubkey, role_name: &str) -> bool {
-        self.roles.iter().any(|r| r.user == *user && r.name == role_name)
+    // Check if a user has a specific role type
+    pub fn has_role(&self, user: &Pubkey, role_type: RoleType) -> bool {
+        self.roles.iter().any(|r| r.user == *user && r.role_type == role_type)
     }
     
-    // Add or update a role
-    pub fn set_role(&mut self, role: Role) -> Result<()> {
-        // Find if role already exists for this user
-        if let Some(pos) = self.roles.iter().position(|r| r.user == role.user && r.name == role.name) {
-            // Update existing role
-            self.roles[pos] = role;
-        } else {
-            // Add new role
-            require!(self.roles.len() < 32, MultisigError::TooManyRoles);
-            self.roles.push(role);
+    // Check if a user has a specific permission
+    pub fn user_has_permission(&self, user: &Pubkey, permission: RolePermission) -> bool {
+        // Owners always have all permissions
+        if self.is_owner(user) {
+            return true;
         }
         
-        Ok(())
+        // Check all roles for this user
+        self.roles.iter()
+            .filter(|r| r.user == *user)
+            .any(|r| r.has_permission(permission))
     }
+    
+
 }

@@ -20,11 +20,14 @@ pub struct CreateTransaction<'info> {
         seeds = [
             b"transaction",
             multisig.key().as_ref(),
-            &[multisig.nonce], // for every created tx, unique enough
+            &multisig.nonce.to_le_bytes(),
+            &clock.unix_timestamp.to_le_bytes()[..4], // add timestamp to avoid collisions, overkill?
         ],
         bump
     )]
     pub transaction: Account<'info, Transaction>,
+    
+    pub clock: Sysvar<'info, Clock>,
 
     #[account(mut)]
     pub proposer: Signer<'info>,
@@ -65,7 +68,7 @@ pub fn create_transaction(
         .checked_add(1)
         .ok_or(MultisigError::ArithmeticOverflow)?;
 
-    msg!("Transaction created by {}, transaction nonce: {}", // maybe this should just be an event
+    msg!("Transaction created by {}, transaction nonce: {}", 
         context.accounts.proposer.key(),
         old_nonce); // Show the current transaction's nonce
 

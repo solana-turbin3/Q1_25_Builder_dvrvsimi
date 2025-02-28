@@ -1,6 +1,6 @@
 // src/instructions/transaction/reject.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction};
+use crate::state::{MultisigState, Transaction, RoleType};
 use crate::error::MultisigError;
 
 #[derive(Accounts)]
@@ -17,7 +17,7 @@ pub struct RejectTransaction<'info> {
         constraint = transaction.is_pending() @ MultisigError::InvalidTransactionStatus,
         constraint = 
             transaction.proposer == rejecter.key() || 
-            multisig.has_role(&rejecter.key(), "admin") @ MultisigError::InsufficientPermission,
+            multisig.has_role(&rejecter.key(), RoleType::Admin) @ MultisigError::InsufficientPermission,
         close = proposer // Close the account and refund rent to proposer
     )]
     pub transaction: Account<'info, Transaction>,

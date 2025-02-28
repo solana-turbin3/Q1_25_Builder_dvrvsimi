@@ -11,7 +11,7 @@ pub use transaction::{
     TRANSACTION_STATUS_EXECUTED, 
     TRANSACTION_STATUS_REJECTED
 };
-pub use access::{Role, RolePermission};
+pub use access::{Role, RolePermission, RoleType};
 
 // Transaction module constants
 pub const MODULE_TOKEN_MANAGEMENT: u8 = 0;

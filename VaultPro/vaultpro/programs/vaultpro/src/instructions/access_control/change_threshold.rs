@@ -34,13 +34,13 @@ pub fn change_threshold(context: Context<ChangeThreshold>) -> Result<()> {
     let instruction_data = &transaction.instruction_data;
     
     // Validate instruction data
-    require!(instruction_data.len() >= 2, ProgramError::InvalidInstructionData);
+    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
     require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId.into());
     require!(instruction_data[1] == ACCESS_INSTRUCTION_CHANGE_THRESHOLD, MultisigError::InvalidInstructionId.into());
     
     // Parse the change threshold instruction
     let change_threshold_data = ChangeThresholdInstruction::try_from_slice(&instruction_data[2..])
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
+        .map_err(|_| MultisigError::InvalidInstructionData)?;
     
     // Validate and apply the new threshold
     multisig.validate_threshold(change_threshold_data.new_threshold)?;

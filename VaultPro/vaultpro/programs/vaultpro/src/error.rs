@@ -3,6 +3,9 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum MultisigError {
+    //---------------------------------------
+    // Initialization & Configuration Errors
+    //---------------------------------------
     #[msg("The threshold must be greater than 0")]
     InvalidThreshold,
 
@@ -15,18 +18,39 @@ pub enum MultisigError {
     #[msg("Name too long (maximum 32 bytes)")]
     NameTooLong,
 
-    #[msg("Invalid multisig PDA address")]
-    InvalidMultisigAddress,
-
-    #[msg("Invalid vault authority PDA")]
-    InvalidVaultAuthority,
-
-    #[msg("Invalid vault PDA address")]
-    InvalidVaultAddress,
-
+    #[msg("Multisig has not been initialized")]
+    MultisigNotInitialized,
+    
+    #[msg("No owners found in multisig")]
+    NoOwnersFound,
+    
+    #[msg("Maximum number of vaults reached for this multisig")]
+    MaxVaultsReached,
+    
+    #[msg("Invalid timelock period")]
+    InvalidTimelock,
+    
+    #[msg("Multisig is frozen")]
+    MultisigFrozen,
+    
+    //---------------------------------------
+    // Access Control Errors
+    //---------------------------------------
     #[msg("Not an owner of this multisig")]
     NotAnOwner,
-
+    
+    #[msg("User doesn't have required permission")]
+    InsufficientPermission,
+    
+    #[msg("Too many roles (maximum 32)")]
+    TooManyRoles,
+    
+    #[msg("Role not found")]
+    RoleNotFound,
+    
+    //---------------------------------------
+    // Transaction Lifecycle Errors
+    //---------------------------------------
     #[msg("Already approved this transaction")]
     AlreadyApproved,
 
@@ -42,12 +66,27 @@ pub enum MultisigError {
     #[msg("Timelock has not passed")]
     TimelockNotPassed,
     
-    #[msg("Multisig has not been initialized")]
-    MultisigNotInitialized,
+    #[msg("Invalid proposer for transaction")]
+    InvalidProposer,
     
-    #[msg("No owners found in multisig")]
-    NoOwnersFound,
+    #[msg("Invalid transaction status")]
+    InvalidTransactionStatus,
     
+    #[msg("Cannot execute transaction")]
+    CannotExecuteTransaction,
+    
+    #[msg("Transaction has not been executed")]
+    NotExecuted,
+    
+    #[msg("Transaction has expired")]
+    TransactionExpired,
+    
+    #[msg("Transaction with this ID already exists")]
+    TransactionAlreadyExists,
+    
+    //---------------------------------------
+    // Token Operation Errors
+    //---------------------------------------
     #[msg("Token mint mismatch")]
     InvalidMint,
     
@@ -60,42 +99,42 @@ pub enum MultisigError {
     #[msg("Invalid deposit amount")]
     InvalidAmount,
 
-    #[msg("Maximum number of vaults reached for this multisig")]
-    MaxVaultsReached,
+    #[msg("Zero amount specified")]
+    ZeroAmount,
+    
+    #[msg("Invalid recipient address")]
+    InvalidRecipient,
+    
+    //---------------------------------------
+    // PDA & Account Validation Errors
+    //---------------------------------------
+    #[msg("Invalid multisig PDA address")]
+    InvalidMultisigAddress,
 
-    #[msg("Invalid proposer for transaction")]
-    InvalidProposer,
+    #[msg("Invalid vault authority PDA")]
+    InvalidVaultAuthority,
+
+    #[msg("Invalid vault PDA address")]
+    InvalidVaultAddress,
     
-    #[msg("Invalid timelock period")]
-    InvalidTimelock,
+    #[msg("Invalid program ID")]
+    InvalidProgramId,
     
-    #[msg("Invalid transaction status")]
-    InvalidTransactionStatus,
-    
-    #[msg("Cannot execute transaction")]
-    CannotExecuteTransaction,
-    
+    //---------------------------------------
+    // Instruction Errors
+    //---------------------------------------
     #[msg("Invalid module ID")]
     InvalidModuleId,
     
     #[msg("Invalid instruction ID")]
     InvalidInstructionId,
     
-    #[msg("Multisig is frozen")]
-    MultisigFrozen,
+    #[msg("Invalid transaction data")]
+    InvalidInstructionData,
     
-    #[msg("Transaction has not been executed")]
-    NotExecuted,
-    
+    //---------------------------------------
+    // System Errors
+    //---------------------------------------
     #[msg("Arithmetic overflow occurred")]
     ArithmeticOverflow,
-    
-    #[msg("Too many roles (maximum 32)")]
-    TooManyRoles,
-    
-    #[msg("Role not found")]
-    RoleNotFound,
-    
-    #[msg("User doesn't have required permission")]
-    InsufficientPermission,
 }
