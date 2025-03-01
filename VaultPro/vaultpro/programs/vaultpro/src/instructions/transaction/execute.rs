@@ -156,3 +156,4 @@ pub fn execute_transaction(context: Context<ExecuteTransaction>) -> Result<()> {
     msg!("Transaction executed successfully by {}", context.accounts.executor.key());
 
     Ok(())
+}

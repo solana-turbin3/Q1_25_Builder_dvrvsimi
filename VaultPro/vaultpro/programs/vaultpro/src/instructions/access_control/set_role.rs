@@ -60,7 +60,9 @@ pub fn set_role(context: Context<SetRole>) -> Result<()> {
         set_role_data.can_propose,
         set_role_data.can_approve,
         set_role_data.can_execute,
-        set_role_data.can_modify_roles
+        set_role_data.can_modify_roles,
+        None, // max_amount
+        None  // valid_until
     );
     
     // Find if the role already exists
@@ -93,3 +95,4 @@ pub fn set_role(context: Context<SetRole>) -> Result<()> {
     });
     
     Ok(())
+}

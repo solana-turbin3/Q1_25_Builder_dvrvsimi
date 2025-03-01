@@ -1,95 +1,74 @@
-// src/instructions/access_control/set_role.rs
+// src/instructions/token_management/state.rs
 use anchor_lang::prelude::*;
-use crate::state::{MultisigState, Transaction, RoleType, Role, RolePermission};
-use crate::error::MultisigError;
-use crate::instructions::access_control::state::{
-    ACCESS_INSTRUCTION_SET_ROLE,
-    SetRoleInstruction
-};
-use crate::state::MODULE_ACCESS_CONTROL;
-use crate::event::RoleChangedEvent;
-use crate::constants::MAX_ROLES_PER_MULTISIG;
+use crate::state::MODULE_TOKEN_MANAGEMENT;
 
-#[derive(Accounts)]
-pub struct SetRole<'info> {
-    #[account(
-        mut,
-        constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
-        constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
-        constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
-    )]
-    pub multisig: Account<'info, MultisigState>,
-    
-    #[account(
-        constraint = transaction.multisig == multisig.key() @ MultisigError::InvalidMultisigAddress,
-        constraint = transaction.is_executed() @ MultisigError::NotExecuted,
-        constraint = transaction.owner_set_seqno == multisig.owner_set_seqno @ MultisigError::OwnerSetChanged,
-    )]
-    pub transaction: Account<'info, Transaction>,
-    
-    #[account(
-        mut,
-        constraint = multisig.user_has_permission(&executor.key(), RolePermission::ModifyRoles) @ MultisigError::InsufficientPermission,
-    )]
-    pub executor: Signer<'info>,
+// Token management instruction identifiers
+pub const TOKEN_INSTRUCTION_CREATE_VAULT: u8 = 0;
+pub const TOKEN_INSTRUCTION_DEPOSIT: u8 = 1;
+pub const TOKEN_INSTRUCTION_WITHDRAW: u8 = 2;
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct CreateVaultInstruction {
+    pub mint: Pubkey,
 }
 
-pub fn set_role(context: Context<SetRole>) -> Result<()> {
-    let multisig = &mut context.accounts.multisig;
-    let transaction = &context.accounts.transaction;
-    let instruction_data = &transaction.instruction_data;
-    let clock = Clock::get()?;
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct DepositInstruction {
+    pub amount: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct WithdrawInstruction {
+    pub token_mint: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+}
+
+/// Helper function to serialize a create vault instruction
+pub fn serialize_create_vault_instruction(
+    mint: Pubkey,
+) -> Result<Vec<u8>> {
+    let create_vault = CreateVaultInstruction {
+        mint,
+    };
     
-    // Validate instruction data
-    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
-    require!(instruction_data[0] == MODULE_ACCESS_CONTROL, MultisigError::InvalidModuleId);
-    require!(instruction_data[1] == ACCESS_INSTRUCTION_SET_ROLE, MultisigError::InvalidInstructionId);
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_CREATE_VAULT];
+    let mut create_vault_data = create_vault.try_to_vec()?;
+    data.append(&mut create_vault_data);
     
-    // Parse the set role instruction
-    let set_role_data = SetRoleInstruction::try_from_slice(&instruction_data[2..])
-        .map_err(|_| MultisigError::InvalidInstructionData)?;
+    Ok(data)
+}
+
+/// Helper function to serialize a deposit instruction
+pub fn serialize_deposit_instruction(
+    amount: u64,
+) -> Result<Vec<u8>> {
+    let deposit = DepositInstruction {
+        amount,
+    };
     
-    // Convert role type from u8
-    let role_type = RoleType::from_u8(set_role_data.role_type)
-        .ok_or(MultisigError::InvalidInstructionData)?;
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_DEPOSIT];
+    let mut deposit_data = deposit.try_to_vec()?;
+    data.append(&mut deposit_data);
     
-    // Create the role
-    let role = Role::new(
-        role_type,
-        set_role_data.user,
-        set_role_data.can_propose,
-        set_role_data.can_approve,
-        set_role_data.can_execute,
-        set_role_data.can_modify_roles
-    );
+    Ok(data)
+}
+
+/// Helper function to serialize a withdraw instruction
+pub fn serialize_withdraw_instruction(
+    token_mint: Pubkey,
+    recipient: Pubkey,
+    amount: u64,
+) -> Result<Vec<u8>> {
+    let withdraw = WithdrawInstruction {
+        token_mint,
+        recipient,
+        amount,
+    };
     
-    // Find if the role already exists
-    let role_position = multisig.roles
-        .iter()
-        .position(|r| r.user == set_role_data.user && r.role_type == role_type);
+    let mut data = vec![MODULE_TOKEN_MANAGEMENT, TOKEN_INSTRUCTION_WITHDRAW];
+    let mut withdraw_data = withdraw.try_to_vec()?;
+    data.append(&mut withdraw_data);
     
-    if let Some(pos) = role_position {
-        // Update existing role
-        multisig.roles[pos] = role;
-        msg!("Updated role {:?} for user {}", role_type, set_role_data.user);
-    } else {
-        // Add new role
-        require!(multisig.roles.len() < MAX_ROLES_PER_MULTISIG, MultisigError::TooManyRoles);
-        multisig.roles.push(role);
-        msg!("Added role {:?} for user {}", role_type, set_role_data.user);
-    }
-    
-    // Emit role change event
-    emit!(RoleChangedEvent {
-        multisig: multisig.key(),
-        user: set_role_data.user,
-        role_type: set_role_data.role_type,
-        can_propose: set_role_data.can_propose,
-        can_approve: set_role_data.can_approve,
-        can_execute: set_role_data.can_execute,
-        can_modify_roles: set_role_data.can_modify_roles,
-        executed_by: context.accounts.executor.key(),
-        executed_at: clock.unix_timestamp,
-    });
-    
-    Ok(())
+    Ok(data)
+}

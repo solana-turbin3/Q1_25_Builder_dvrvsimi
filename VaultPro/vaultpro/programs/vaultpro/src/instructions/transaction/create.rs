@@ -72,7 +72,7 @@ pub fn create_transaction(
         multisig.owner_set_seqno,
         clock.unix_timestamp,
         execute_after,
-        *context.bumps.get("transaction").unwrap(),
+        context.bumps.transaction,
     );
 
     // Update multisig nonce for next transaction

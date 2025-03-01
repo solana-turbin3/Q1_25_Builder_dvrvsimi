@@ -3,9 +3,9 @@ use anchor_lang::prelude::*;
 
 pub mod error;
 pub mod state;
-pub mod instructions;
 pub mod constants;
 pub mod event;
+pub mod instructions;
 
 use instructions::*;
 
@@ -15,60 +15,77 @@ declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
 pub mod vaultpro {
     use super::*;
 
-    // Multisig Management instructions
+    //---------------------------------------
+    // Multisig Management Instructions
+    //---------------------------------------
+    
     pub fn initialize_multisig(
-        context: Context<multisig_management::InitializeMultisig>, 
+        ctx: Context<InitializeMultisig>, 
         name: String,
         owners: Vec<Pubkey>,
         threshold: u8
     ) -> Result<()> {
-        multisig_management::initialize_multisig(context, name, owners, threshold)
+        instructions::multisig_management::initialize_multisig(ctx, name, owners, threshold)
     }
 
-    // Token management instructions
-    pub fn create_token_vault(context: Context<token_management::CreateTokenVault>) -> Result<()> {
-        token_management::create_token_vault(context)
+    
+    // pub fn freeze_multisig(ctx: Context<FreezeMultisig>) -> Result<()> {
+    //     instructions::multisig_management::freeze_multisig(ctx)
+    // }
+
+    //---------------------------------------
+    // Token Management Instructions 
+    //---------------------------------------
+    
+    pub fn create_token_vault(ctx: Context<CreateTokenVault>) -> Result<()> {
+        instructions::token_management::create_token_vault(ctx)
     }
 
-    pub fn deposit(context: Context<token_management::Deposit>, amount: u64) -> Result<()> {
-        token_management::deposit(context, amount)
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        instructions::token_management::deposit(ctx, amount)
     }
 
-    pub fn withdraw(context: Context<token_management::Withdraw>) -> Result<()> {
-        token_management::withdraw(context)
+    pub fn withdraw(ctx: Context<Withdraw>) -> Result<()> {
+        instructions::token_management::withdraw(ctx)
     }
     
-    // Access control instructions
-    pub fn change_threshold(context: Context<access_control::ChangeThreshold>) -> Result<()> {
-        access_control::change_threshold(context)
+    //---------------------------------------
+    // Access Control Instructions
+    //---------------------------------------
+    
+    pub fn change_threshold(ctx: Context<ChangeThreshold>) -> Result<()> {
+        instructions::access_control::change_threshold(ctx)
     }
 
-    pub fn manage_owner(context: Context<access_control::ManageOwner>) -> Result<()> {
-        access_control::manage_owner(context)
+    pub fn manage_owner(ctx: Context<ManageOwner>) -> Result<()> {
+        instructions::access_control::manage_owner(ctx)
     }
     
-    pub fn set_role(context: Context<access_control::SetRole>) -> Result<()> {
-        access_control::set_role(context)
+    pub fn set_role(ctx: Context<SetRole>) -> Result<()> {
+        instructions::access_control::set_role(ctx)
     }
     
-    // Transaction instructions
+    //---------------------------------------
+    // Transaction Instructions
+    //---------------------------------------
+    
     pub fn create_transaction(
-        context: Context<transaction::CreateTransaction>,
+        ctx: Context<CreateTransaction>,
         instruction_data: Vec<u8>,
         timelock: Option<i64>
     ) -> Result<()> {
-        transaction::create_transaction(context, instruction_data, timelock)
+        instructions::transaction::create_transaction(ctx, instruction_data, timelock)
     }
     
-    pub fn approve_transaction(context: Context<transaction::ApproveTransaction>) -> Result<()> {
-        transaction::approve_transaction(context)
+    pub fn approve_transaction(ctx: Context<ApproveTransaction>) -> Result<()> {
+        instructions::transaction::approve_transaction(ctx)
     }
     
-    pub fn execute_transaction(context: Context<transaction::ExecuteTransaction>) -> Result<()> {
-        transaction::execute_transaction(context)
+    pub fn execute_transaction(ctx: Context<ExecuteTransaction>) -> Result<()> {
+        instructions::transaction::execute_transaction(ctx)
     }
     
-    pub fn reject_transaction(context: Context<transaction::RejectTransaction>) -> Result<()> {
-        transaction::reject_transaction(context)
+    pub fn reject_transaction(ctx: Context<RejectTransaction>) -> Result<()> {
+        instructions::transaction::reject_transaction(ctx)
     }
 }

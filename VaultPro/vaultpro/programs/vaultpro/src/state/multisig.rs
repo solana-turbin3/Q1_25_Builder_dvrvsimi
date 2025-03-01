@@ -1,7 +1,7 @@
 // src/state/multisig.rs
 use anchor_lang::prelude::*;
 use crate::error::MultisigError;
-use crate::constants::{MAX_OWNERS, MAX_VAULTS_PER_MULTISIG};
+use crate::constants::{MAX_OWNERS, MAX_VAULTS_PER_MULTISIG, MAX_NAME_LENGTH};
 use super::token_vault::VaultInfo;
 use super::access::{Role, RoleType, RolePermission};
 

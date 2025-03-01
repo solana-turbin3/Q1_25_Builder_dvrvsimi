@@ -58,7 +58,7 @@ pub fn initialize_multisig(
     multisig.threshold = threshold;
     multisig.nonce = 0;
     multisig.owner_set_seqno = 0;
-    multisig.bump = *context.bumps.get("multisig").unwrap();
+    multisig.bump = context.bumps.multisig;
     multisig.initialized = true;
     multisig.default_timelock = 0; // Default to no timelock
     multisig.frozen = false;
@@ -71,7 +71,7 @@ pub fn initialize_multisig(
     // Emit initialization event
     emit!(MultisigInitializedEvent {
         multisig: multisig.key(),
-        name,
+        name: name.clone(),
         owners,
         threshold,
         created_at: clock.unix_timestamp,

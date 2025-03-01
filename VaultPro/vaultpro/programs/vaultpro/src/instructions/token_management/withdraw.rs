@@ -101,10 +101,11 @@ pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
     );
 
     // Get vault authority seeds for signing
-    let authority_bump = *context.bumps.get("vault_authority").unwrap();
+    let authority_bump = context.bumps.vault_authority;
+    let binding = context.accounts.multisig.key();
     let authority_seeds = &[
         b"authority",
-        context.accounts.multisig.key().as_ref(),
+        binding.as_ref(),
         &[authority_bump]
     ];
     let signer = &[&authority_seeds[..]];

@@ -53,8 +53,8 @@ impl Role {
         can_approve: bool, 
         can_execute: bool,
         can_modify_roles: bool,
-        max_amount: Option<u64> = None,
-        valid_until: Option<i64> = None,
+        max_amount: Option<u64>,
+        valid_until: Option<i64>,
     ) -> Self {
         Self {
             role_type,
