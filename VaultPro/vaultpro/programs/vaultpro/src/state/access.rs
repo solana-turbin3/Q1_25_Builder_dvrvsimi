@@ -157,6 +157,7 @@ impl Role {
 }
 
 /// Helper enum for checking permissions
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RolePermission {
     Propose,
     Approve,

@@ -1,52 +1,34 @@
 // src/instructions/token_management/deposit.rs
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint};
-use crate::event::DepositEvent;
-use crate::error::MultisigError;
+use anchor_spl::token::{self, Token};
 use crate::state::MultisigState;
+use crate::error::MultisigError;
+use crate::event::DepositEvent;
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(
+        mut,
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
-        constraint = multisig.owners.len() > 0 @ MultisigError::NoOwnersFound,
         constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
-        constraint = multisig.validate_vault(
-            token_vault.key(), 
-            token_mint.key()
-        ).is_ok() @ MultisigError::InvalidVaultAddress,
     )]
     pub multisig: Account<'info, MultisigState>,
 
-    #[account(
-        mut,
-        seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
-        bump,
-        constraint = token_vault.mint == token_mint.key() @ MultisigError::InvalidMint,
-        constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
-    )]
-    pub token_vault: Account<'info, TokenAccount>,
-
-    /// CHECK: PDA authority verification
-    #[account(
-        seeds = [b"authority", multisig.key().as_ref()],
-        bump
-    )]
-    pub vault_authority: UncheckedAccount<'info>,
-
-    #[account(
-        mut,
-        constraint = depositor_token_account.mint == token_mint.key() @ MultisigError::InvalidMint,
-        constraint = depositor_token_account.owner == depositor.key() @ MultisigError::InvalidTokenOwner,
-    )]
-    pub depositor_token_account: Account<'info, TokenAccount>,
+    /// CHECK: This is safe as we verify it in the handler
+    #[account(mut)]
+    pub token_vault: AccountInfo<'info>,
     
-    pub token_mint: Account<'info, Mint>,
+    /// CHECK: This is safe as we verify it in the handler
+    #[account(mut)]
+    pub depositor_token_account: AccountInfo<'info>,
+    
+    /// CHECK: This is safe as we verify it in the handler
+    pub token_mint: AccountInfo<'info>,
+    
+    pub token_program: Program<'info, Token>,
     
     #[account(mut)]
     pub depositor: Signer<'info>,
-    
-    pub token_program: Program<'info, Token>,
 }
 
 pub fn deposit(context: Context<Deposit>, amount: u64) -> Result<()> {

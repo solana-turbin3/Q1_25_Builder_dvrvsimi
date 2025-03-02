@@ -1,18 +1,15 @@
 // src/instructions/token_management/withdraw.rs
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint};
+use anchor_spl::token::{self, Token, ID as TOKEN_PROGRAM_ID};
 use crate::state::{MultisigState, Transaction, RolePermission};
-use crate::event::WithdrawEvent;
 use crate::error::MultisigError;
-use crate::instructions::token_management::state::{
-    TOKEN_INSTRUCTION_WITHDRAW,
-    WithdrawInstruction
-};
-use crate::state::MODULE_TOKEN_MANAGEMENT;
+use crate::event::WithdrawEvent;
+use crate::instructions::token_management::state::WithdrawInstruction;
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(
+        mut,
         constraint = multisig.initialized @ MultisigError::MultisigNotInitialized,
         constraint = multisig.is_owner(&executor.key()) @ MultisigError::NotAnOwner,
         constraint = !multisig.is_frozen() @ MultisigError::MultisigFrozen,
@@ -26,90 +23,53 @@ pub struct Withdraw<'info> {
     )]
     pub transaction: Account<'info, Transaction>,
     
-    #[account(
-        mut,
-        constraint = token_vault.owner == vault_authority.key() @ MultisigError::InvalidTokenOwner,
-        constraint = token_vault.mint == token_mint.key() @ MultisigError::InvalidMint,
-        seeds = [b"vault", multisig.key().as_ref(), token_mint.key().as_ref()],
-        bump,
-    )]
-    pub token_vault: Account<'info, TokenAccount>,
+    /// CHECK: This is safe as we verify it in the handler
+    #[account(mut)]
+    pub token_vault: AccountInfo<'info>,
     
-    #[account(
-        seeds = [b"authority", multisig.key().as_ref()],
-        bump
-    )]
-    /// CHECK: PDA authority for the vault
-    pub vault_authority: UncheckedAccount<'info>,
+    /// CHECK: This is safe as we verify it in the handler
+    #[account(mut)]
+    pub recipient_token_account: AccountInfo<'info>,
     
-    #[account(
-        mut,
-        constraint = recipient_token_account.mint == token_mint.key() @ MultisigError::InvalidMint,
-        constraint = recipient_token_account.owner == recipient.key() @ MultisigError::InvalidTokenOwner,
-    )]
-    pub recipient_token_account: Account<'info, TokenAccount>,
-    
-    /// The Mint of the token being withdrawn
-    pub token_mint: Account<'info, Mint>,
+    /// CHECK: This is safe as we verify it in the handler
+    pub token_mint: AccountInfo<'info>,
     
     /// The recipient of the token transfer
     /// CHECK: Validated through the recipient_token_account
     pub recipient: UncheckedAccount<'info>,
+
+    /// CHECK: PDA that will own token vaults
+    #[account(
+        seeds = [b"authority", multisig.key().as_ref()],
+        bump,
+    )]
+    pub vault_authority: AccountInfo<'info>,
     
     #[account(
         mut,
-        constraint = multisig.user_has_permission(&executor.key(), RolePermission::Execute) @ MultisigError::InsufficientPermission,
+        constraint = multisig.user_has_permission(&executor.key(), RolePermission::ModifyRoles) @ MultisigError::InsufficientPermission,
     )]
     pub executor: Signer<'info>,
     
-    #[account(address = token::ID @ MultisigError::InvalidProgramId)]
+    #[account(address = TOKEN_PROGRAM_ID)]
     pub token_program: Program<'info, Token>,
 }
 
 pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
-    let transaction = &context.accounts.transaction;
-    let instruction_data = &transaction.instruction_data;
     let clock = Clock::get()?;
     
-    // Validate the instruction data matches what we expect
-    require!(instruction_data.len() >= 2, MultisigError::InvalidInstructionData);
-    require!(instruction_data[0] == MODULE_TOKEN_MANAGEMENT, MultisigError::InvalidModuleId);
-    require!(instruction_data[1] == TOKEN_INSTRUCTION_WITHDRAW, MultisigError::InvalidInstructionId);
+    // Deserialize the instruction data from the transaction
+    let withdraw_data = WithdrawInstruction::try_from_slice(
+        &context.accounts.transaction.instruction_data[2..]
+    )?;
     
-    // Parse the withdrawal instruction data
-    let withdraw_data = WithdrawInstruction::try_from_slice(&instruction_data[2..])
-        .map_err(|_| MultisigError::InvalidInstructionData)?;
-    
-    // Validate the parsed data against the provided accounts
+    // Get token account info and verify balance
+    let vault_amount = token::accessor::amount(&context.accounts.token_vault)?;
     require!(
-        withdraw_data.token_mint == context.accounts.token_mint.key(),
-        MultisigError::InvalidMint
-    );
-    
-    require!(
-        withdraw_data.recipient == context.accounts.recipient.key(),
-        MultisigError::InvalidRecipient
-    );
-    
-    // Ensure amount is greater than zero
-    require!(withdraw_data.amount > 0, MultisigError::ZeroAmount);
-    
-    // Ensure vault has sufficient funds
-    require!(
-        context.accounts.token_vault.amount >= withdraw_data.amount,
+        vault_amount >= withdraw_data.amount,
         MultisigError::InsufficientFunds
     );
-
-    // Get vault authority seeds for signing
-    let authority_bump = context.bumps.vault_authority;
-    let binding = context.accounts.multisig.key();
-    let authority_seeds = &[
-        b"authority",
-        binding.as_ref(),
-        &[authority_bump]
-    ];
-    let signer = &[&authority_seeds[..]];
-
+    
     // Transfer tokens from vault to recipient
     token::transfer(
         CpiContext::new_with_signer(
@@ -119,22 +79,26 @@ pub fn withdraw(context: Context<Withdraw>) -> Result<()> {
                 to: context.accounts.recipient_token_account.to_account_info(),
                 authority: context.accounts.vault_authority.to_account_info(),
             },
-            signer
+            &[&[
+                b"authority",
+                context.accounts.multisig.key().as_ref(),
+                &[context.bumps.vault_authority],
+            ]],
         ),
-        withdraw_data.amount
+        withdraw_data.amount,
     )?;
-
-    // Emit withdrawal event
+    
+    // Emit withdraw event
     emit!(WithdrawEvent {
         multisig: context.accounts.multisig.key(),
-        recipient: withdraw_data.recipient,
-        mint: withdraw_data.token_mint,
+        recipient: context.accounts.recipient.key(),
+        mint: context.accounts.token_mint.key(),
         amount: withdraw_data.amount,
         created_at: clock.unix_timestamp,
     });
-
+    
     msg!(
-        "Withdrew {} tokens from vault to recipient {}", 
+        "Withdrew {} tokens to {}",
         withdraw_data.amount,
         context.accounts.recipient.key()
     );

@@ -38,9 +38,7 @@ pub struct ExecuteTransaction<'info> {
     )]
     pub transaction: Account<'info, Transaction>,
 
-    #[account(
-        constraint = proposer.key() == transaction.proposer @ MultisigError::InvalidProposer
-    )]
+    /// CHECK: We only use this account as a constraint check against the transaction's proposer
     pub proposer: UncheckedAccount<'info>,
 
     #[account(

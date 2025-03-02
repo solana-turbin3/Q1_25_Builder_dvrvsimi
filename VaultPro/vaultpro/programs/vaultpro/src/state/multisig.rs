@@ -83,7 +83,7 @@ impl MultisigState {
     // Validate a vault
     pub fn validate_vault(&self, vault: Pubkey, mint: Pubkey) -> Result<()> {
         // Find the vault info
-        let vault_info = self.vaults
+        let _vault_info = self.vaults
             .iter()
             .find(|v| v.vault == vault && v.mint == mint)
             .ok_or(MultisigError::InvalidVaultAddress)?;

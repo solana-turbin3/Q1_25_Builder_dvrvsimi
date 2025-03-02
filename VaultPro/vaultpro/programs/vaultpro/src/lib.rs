@@ -7,6 +7,7 @@ pub mod constants;
 pub mod event;
 pub mod instructions;
 
+
 use instructions::*;
 
 declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
@@ -14,6 +15,12 @@ declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
 #[program]
 pub mod vaultpro {
     use super::*;
+    use crate::instructions::{
+        multisig_management::{InitializeMultisig, FreezeMultisig},
+        token_management::{CreateTokenVault, Deposit, Withdraw},
+        access_control::{ChangeThreshold, ManageOwner, SetRole},
+        transaction::{CreateTransaction, ApproveTransaction, ExecuteTransaction, RejectTransaction},
+    };
 
     //---------------------------------------
     // Multisig Management Instructions
@@ -28,10 +35,9 @@ pub mod vaultpro {
         instructions::multisig_management::initialize_multisig(ctx, name, owners, threshold)
     }
 
-    
-    // pub fn freeze_multisig(ctx: Context<FreezeMultisig>) -> Result<()> {
-    //     instructions::multisig_management::freeze_multisig(ctx)
-    // }
+    pub fn freeze_multisig(ctx: Context<FreezeMultisig>) -> Result<()> {
+        instructions::multisig_management::freeze_multisig(ctx)
+    }
 
     //---------------------------------------
     // Token Management Instructions 
