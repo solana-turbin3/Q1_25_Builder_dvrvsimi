@@ -2,7 +2,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import { BorshCoder } from "@coral-xyz/anchor";
-import { VaultPro } from "../../target/types/vaultpro";
+import { Vaultpro } from "../../target/types/vaultpro";
 
 // Module identifiers
 export const MODULE_TOKEN_MANAGEMENT = 0;
@@ -28,6 +28,7 @@ export const MULTISIG_INSTRUCTION_FREEZE_VAULT = 2;
 // Transaction Instructions
 export const TRANSACTION_INSTRUCTION_REJECT = 0;
 export const TRANSACTION_INSTRUCTION_REVOKE_APPROVAL = 1;
+export const TRANSACTION_INSTRUCTION_FREEZE = 4;
 
 // RoleType enum
 export enum RoleType {
@@ -44,7 +45,7 @@ export async function serializeManageOwnerInstruction(owner: PublicKey, isAdd: b
     isAdd: isAdd,
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('ManageOwnerInstruction', data);
   
   return Buffer.concat([
@@ -58,7 +59,7 @@ export async function serializeChangeThresholdInstruction(newThreshold: number):
     newThreshold: newThreshold,
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('ChangeThresholdInstruction', data);
   
   return Buffer.concat([
@@ -84,7 +85,7 @@ export async function serializeSetRoleInstruction(
     canModifyRoles: canModifyRoles,
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('SetRoleInstruction', data);
   
   return Buffer.concat([
@@ -99,7 +100,7 @@ export async function serializeSetTimelockInstruction(duration: number): Promise
     duration: new anchor.BN(duration),
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('SetTimelockInstruction', data);
   
   return Buffer.concat([
@@ -113,7 +114,7 @@ export async function serializeFreezeVaultInstruction(freeze: boolean): Promise<
     freeze: freeze,
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('FreezeVaultInstruction', data);
   
   return Buffer.concat([
@@ -134,7 +135,7 @@ export async function serializeWithdrawInstruction(
     amount: new anchor.BN(amount),
   };
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('WithdrawInstruction', data);
   
   return Buffer.concat([
@@ -148,7 +149,7 @@ export async function serializeRejectTransactionInstruction(): Promise<Buffer> {
   // No additional data for this instruction
   const data = {};
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('RejectTransactionInstruction', data);
   
   return Buffer.concat([
@@ -161,7 +162,7 @@ export async function serializeRevokeApprovalInstruction(): Promise<Buffer> {
   // No additional data for this instruction
   const data = {};
   
-  const borsh = new BorshCoder(anchor.workspace.VaultPro.idl as anchor.Idl);
+  const borsh = new BorshCoder(anchor.workspace.Vaultpro.idl as anchor.Idl);
   const serializedData = borsh.types.encode('RevokeApprovalInstruction', data);
   
   return Buffer.concat([

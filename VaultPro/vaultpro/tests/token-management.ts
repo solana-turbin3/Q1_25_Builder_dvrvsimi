@@ -1,7 +1,6 @@
 // tests/token-management.ts
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { VaultPro } from "../target/types/vaultpro";
 import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { 
   TOKEN_PROGRAM_ID, 
@@ -13,8 +12,9 @@ import {
   getAccount
 } from "@solana/spl-token";
 import { expect } from "chai";
+import * as vaultproIdl from "../target/idl/vaultpro.json";
 import { serializeWithdrawInstruction } from "./utils/instructions";
-import { executeTransaction, createAndApproveTransaction } from "./utils/transaction-helpers";
+import { executeTransaction, createAndApproveTransaction } from "./utils/helpers";
 import { findMultisigPda, findVaultAuthorityPda, findVaultPda } from "./utils/pda";
 
 describe("VaultPro Token Management", () => {
@@ -22,8 +22,12 @@ describe("VaultPro Token Management", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.VaultPro as Program<VaultPro>;
+  const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
+  const program = new anchor.Program(vaultproIdl as anchor.Idl, programId, provider) as Program<vaultproIdl>;
   
+  // Add debug logs here, after program is defined
+  console.log("Program ID:", program.programId.toString());
+
   // Test accounts
   const payer = provider.wallet;
   const multisigName = "TokenTest";
@@ -131,11 +135,11 @@ describe("VaultPro Token Management", () => {
         .accounts({
           multisig: multisigPda,
           tokenVault: tokenVault,
-          vaultAuthority: vaultAuthorityPda,
           mint: tokenMint,
-          payer: payer.publicKey,
-          systemProgram: SystemProgram.programId,
+          vaultAuthority: vaultAuthorityPda,
+          executor: payer.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
           rent: SYSVAR_RENT_PUBKEY,
         })
         .rpc();
@@ -167,11 +171,11 @@ describe("VaultPro Token Management", () => {
           .accounts({
             multisig: multisigPda,
             tokenVault: tokenVault,
-            vaultAuthority: vaultAuthorityPda,
             mint: tokenMint,
-            payer: payer.publicKey,
-            systemProgram: SystemProgram.programId,
+            vaultAuthority: vaultAuthorityPda,
+            executor: payer.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
             rent: SYSVAR_RENT_PUBKEY,
           })
           .rpc();
@@ -207,11 +211,10 @@ describe("VaultPro Token Management", () => {
         .accounts({
           multisig: multisigPda,
           tokenVault: tokenVault,
-          vaultAuthority: vaultAuthorityPda,
           depositorTokenAccount: payerTokenAccount,
           tokenMint: tokenMint,
-          depositor: payer.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
+          depositor: payer.publicKey,
         })
         .rpc();
       
@@ -241,11 +244,10 @@ describe("VaultPro Token Management", () => {
           .accounts({
             multisig: multisigPda,
             tokenVault: tokenVault,
-            vaultAuthority: vaultAuthorityPda,
             depositorTokenAccount: payerTokenAccount,
             tokenMint: tokenMint,
-            depositor: payer.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            depositor: payer.publicKey,
           })
           .rpc();
         expect.fail("Should not allow zero amount deposit");
@@ -294,11 +296,10 @@ describe("VaultPro Token Management", () => {
         .accounts({
           multisig: multisigPda,
           tokenVault: tokenVault,
-          vaultAuthority: vaultAuthorityPda,
           depositorTokenAccount: owner1TokenAccount,
           tokenMint: tokenMint,
-          depositor: owner1.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
+          depositor: owner1.publicKey,
         })
         .signers([owner1])
         .rpc();

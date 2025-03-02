@@ -2,7 +2,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
-import { VaultPro } from "../../target/types/vaultpro";
+import { Vaultpro } from "../../target/types/vaultpro";
 import { findTransactionPda } from "./pda";
 
 /**
@@ -14,15 +14,17 @@ import { findTransactionPda } from "./pda";
  * @param instructionData The serialized instruction data
  * @param additionalApprovers Additional signers who should approve
  * @param forceExecution Optional flag to force execution regardless of state
+ * @param timelock Optional timelock for the transaction
  * @returns The transaction PDA
  */
 export async function createAndApproveTransaction(
-  program: Program<VaultPro>,
+  program: Program<Vaultpro>,
   proposer: anchor.web3.Keypair | anchor.Wallet,
   multisigPda: PublicKey,
   instructionData: Buffer,
   additionalApprovers: Keypair[] = [],
-  forceExecution: boolean = false
+  forceExecution: boolean = false,
+  timelock: number | null = null
 ): Promise<PublicKey> {
   // Get multisig account to determine nonce
   const multisigAccount = await program.account.multisigState.fetch(multisigPda);
@@ -37,7 +39,7 @@ export async function createAndApproveTransaction(
   await program.methods
     .createTransaction(
       Array.from(instructionData),
-      null // No timelock
+      timelock ? new anchor.BN(timelock) : null
     )
     .accounts({
       multisig: multisigPda,
@@ -79,7 +81,7 @@ export async function createAndApproveTransaction(
  * @param transactionPda The transaction address
  */
 export async function executeTransaction(
-  program: Program<VaultPro>,
+  program: Program<Vaultpro>,
   executor: anchor.web3.Keypair | anchor.Wallet,
   multisigPda: PublicKey,
   transactionPda: PublicKey

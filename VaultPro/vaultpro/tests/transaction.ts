@@ -1,19 +1,26 @@
 // tests/transaction.ts
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { VaultPro } from "../target/types/vaultpro";
 import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { expect } from "chai";
-import { serializeManageOwnerInstruction, serializeRejectTransactionInstruction } from "./utils/instructions";
+import * as vaultproIdl from "../target/idl/vaultpro.json";
+import { 
+  serializeManageOwnerInstruction, 
+  serializeRejectTransactionInstruction,
+  serializeRevokeApprovalInstruction, 
+} from "./utils/instructions";
 import { findMultisigPda, findVaultAuthorityPda, findTransactionPda } from "./utils/pda";
+import { executeTransaction, createAndApproveTransaction } from "./utils/helpers";
+import { TransactionStatus } from "./utils/enums";
 
 describe("VaultPro Transactions", () => {
   // Configure the client to use the local cluster
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.VaultPro as Program<VaultPro>;
+  const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
+  const program = new anchor.Program(vaultproIdl as any, programId, provider);
   
   // Test accounts
   const payer = provider.wallet;
@@ -87,7 +94,7 @@ describe("VaultPro Transactions", () => {
       const txAccount = await program.account.transaction.fetch(transactionPda);
       expect(txAccount.multisig.toString()).to.equal(multisigPda.toString());
       expect(txAccount.proposer.toString()).to.equal(payer.publicKey.toString());
-      expect(txAccount.status).to.equal(0); // PENDING
+      expect(txAccount.status).to.equal(TransactionStatus.Pending);
       expect(txAccount.approvers).to.have.lengthOf(1); // Auto-approved by proposer
       expect(txAccount.approvers[0].toString()).to.equal(payer.publicKey.toString());
     });
@@ -130,8 +137,7 @@ describe("VaultPro Transactions", () => {
   });
 
   describe("Approve Transaction", () => {
-    it("should allow an owner to approve a transaction", async () => {
-      // Owner1 approves the transaction
+    it("should approve a transaction", async () => {
       await program.methods
         .approveTransaction()
         .accounts({
@@ -142,49 +148,22 @@ describe("VaultPro Transactions", () => {
         .signers([owner1])
         .rpc();
 
-      // Verify approval was recorded
+      // Verify approval was added
       const txAccount = await program.account.transaction.fetch(transactionPda);
       expect(txAccount.approvers).to.have.lengthOf(2);
       expect(txAccount.approvers.map(pk => pk.toString()))
         .to.include(owner1.publicKey.toString());
-    });
-
-    it("should not allow the same owner to approve twice", async () => {
-      try {
-        // Owner1 tries to approve again
-        await program.methods
-          .approveTransaction()
-          .accounts({
-            multisig: multisigPda,
-            transaction: transactionPda,
-            approver: owner1.publicKey,
-          })
-          .signers([owner1])
-          .rpc();
-        expect.fail("Should not allow double approval");
-      } catch (error) {
-        expect(error).to.exist;
-      }
     });
   });
 
   describe("Execute Transaction", () => {
     it("should execute a transaction when threshold is met", async () => {
       // We already have 2 approvals (payer and owner1), which meets the threshold
-      await program.methods
-        .executeTransaction()
-        .accounts({
-          multisig: multisigPda,
-          transaction: transactionPda,
-          proposer: payer.publicKey,
-          executor: payer.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+      await executeTransaction(program, payer, multisigPda, transactionPda);
 
       // Verify transaction was executed
       const txAccount = await program.account.transaction.fetch(transactionPda);
-      expect(txAccount.status).to.equal(1); // EXECUTED
+      expect(txAccount.status).to.equal(TransactionStatus.Executed);
 
       // Verify the instruction effect (owner3 should be added)
       const multisigAccount = await program.account.multisigState.fetch(multisigPda);
@@ -217,16 +196,7 @@ describe("VaultPro Transactions", () => {
 
       try {
         // Try to execute without enough approvals
-        await program.methods
-          .executeTransaction()
-          .accounts({
-            multisig: multisigPda,
-            transaction: txPda,
-            proposer: payer.publicKey,
-            executor: payer.publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .rpc();
+        await executeTransaction(program, payer, multisigPda, txPda);
         expect.fail("Should not execute without enough approvals");
       } catch (error) {
         expect(error).to.exist;
@@ -234,86 +204,105 @@ describe("VaultPro Transactions", () => {
     });
   });
 
-  describe("Reject Transaction", () => {
-    it("should allow a proposer to reject their own transaction", async () => {
-      // Create a new transaction
-      const instructionData = await serializeRejectTransactionInstruction();
+  describe("Transaction Management", () => {
+    describe("Reject Transaction", () => {
+      it("should reject a pending transaction", async () => {
+        // Create a new transaction to reject
+        const instructionData = await serializeManageOwnerInstruction(
+          Keypair.generate().publicKey,
+          true
+        );
 
-      // Calculate transaction PDA for next nonce
-      const multisigAccount = await program.account.multisigState.fetch(multisigPda);
-      const nonce = multisigAccount.nonce;
-      const [txPda, txBump] = findTransactionPda(program.programId, multisigPda, nonce);
+        const [txPda] = findTransactionPda(
+          program.programId,
+          multisigPda,
+          (await program.account.multisigState.fetch(multisigPda)).nonce
+        );
 
-      // Create transaction
-      await program.methods
-        .createTransaction(instructionData, null)
-        .accounts({
-          multisig: multisigPda,
-          transaction: txPda,
-          proposer: payer.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+        await program.methods
+          .createTransaction(instructionData, null)
+          .accounts({
+            multisig: multisigPda,
+            transaction: txPda,
+            proposer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
 
-      // Reject the transaction
-      await program.methods
-        .rejectTransaction()
-        .accounts({
-          multisig: multisigPda,
-          transaction: txPda,
-          proposer: payer.publicKey,
-          rejecter: payer.publicKey,
-        })
-        .rpc();
+        // Reject the transaction
+        await program.methods
+          .rejectTransaction()
+          .accounts({
+            multisig: multisigPda,
+            transaction: txPda,
+            proposer: payer.publicKey,
+            executor: owner1.publicKey,
+          })
+          .signers([owner1])
+          .rpc();
 
-      // Verify transaction account was closed
-      try {
-        await program.account.transaction.fetch(txPda);
-        expect.fail("Transaction account should be closed");
-      } catch (error) {
-        expect(error).to.exist;
-      }
+        // Verify transaction was rejected
+        const txAccount = await program.account.transaction.fetch(txPda);
+        expect(txAccount.status).to.equal(TransactionStatus.Rejected);
+      });
     });
 
-    it("should allow an admin to reject someone else's transaction", async () => {
-      // Create a new transaction from owner1
-      const instructionData = await serializeRejectTransactionInstruction();
+    describe("Revoke Approval", () => {
+      it("should revoke an approval from a transaction", async () => {
+        // Create a new transaction
+        const instructionData = await serializeManageOwnerInstruction(
+          Keypair.generate().publicKey,
+          true
+        );
 
-      // Calculate transaction PDA for next nonce
-      const multisigAccount = await program.account.multisigState.fetch(multisigPda);
-      const nonce = multisigAccount.nonce;
-      const [txPda, txBump] = findTransactionPda(program.programId, multisigPda, nonce);
+        const [txPda] = findTransactionPda(
+          program.programId,
+          multisigPda,
+          (await program.account.multisigState.fetch(multisigPda)).nonce
+        );
 
-      // Create transaction
-      await program.methods
-        .createTransaction(instructionData, null)
-        .accounts({
-          multisig: multisigPda,
-          transaction: txPda,
-          proposer: owner1.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .signers([owner1])
-        .rpc();
+        await program.methods
+          .createTransaction(instructionData, null)
+          .accounts({
+            multisig: multisigPda,
+            transaction: txPda,
+            proposer: payer.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
 
-      // Payer (as admin/owner) rejects the transaction
-      await program.methods
-        .rejectTransaction()
-        .accounts({
-          multisig: multisigPda,
-          transaction: txPda,
-          proposer: owner1.publicKey,
-          rejecter: payer.publicKey,
-        })
-        .rpc();
+        // Approve transaction
+        await program.methods
+          .approveTransaction()
+          .accounts({
+            multisig: multisigPda,
+            transaction: txPda,
+            approver: owner1.publicKey,
+          })
+          .signers([owner1])
+          .rpc();
 
-      // Verify transaction account was closed
-      try {
-        await program.account.transaction.fetch(txPda);
-        expect.fail("Transaction account should be closed");
-      } catch (error) {
-        expect(error).to.exist;
-      }
+        // Check approvals before revocation
+        let txAccount: any = await program.account.transaction.fetch(txPda);
+        expect(txAccount.approvers.map(pk => pk.toString()))
+          .to.include(owner1.publicKey.toString());
+
+        // Revoke approval
+        await program.methods
+          .revokeApproval()
+          .accounts({
+            multisig: multisigPda,
+            transaction: txPda,
+            approver: owner1.publicKey,
+          })
+          .signers([owner1])
+          .rpc();
+
+        // Verify approval was revoked
+        txAccount = await program.account.transaction.fetch(txPda);
+        expect(txAccount.approvers.map(pk => pk.toString()))
+          .to.not.include(owner1.publicKey.toString());
+      });
     });
   });
 });

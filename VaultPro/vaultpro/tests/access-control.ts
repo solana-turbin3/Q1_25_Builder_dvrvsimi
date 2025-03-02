@@ -1,12 +1,12 @@
 // tests/access-control.ts
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { VaultPro } from "../target/types/vaultpro";
 import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getOrCreateAssociatedTokenAccount, createMint, mintTo } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { expect } from "chai";
+import * as vaultproIdl from "../target/idl/vaultpro.json";
 import { serializeManageOwnerInstruction, serializeChangeThresholdInstruction, serializeSetRoleInstruction } from "./utils/instructions";
-import { executeTransaction, createAndApproveTransaction } from "./utils/transaction-helpers";
+import { executeTransaction, createAndApproveTransaction } from "./utils/helpers";
 import { findMultisigPda, findVaultAuthorityPda, findTransactionPda } from "./utils/pda";
 import { RoleType } from "./utils/enums";
 
@@ -15,7 +15,8 @@ describe("VaultPro Access Control", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.VaultPro as Program<VaultPro>;
+  const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
+  const program = new anchor.Program(vaultproIdl as unknown as anchor.Idl, programId, provider);
   
   // Test accounts
   const payer = provider.wallet;

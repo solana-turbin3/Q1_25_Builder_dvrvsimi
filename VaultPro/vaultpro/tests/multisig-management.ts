@@ -1,11 +1,11 @@
 // tests/multisig-management.ts
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { VaultPro } from "../target/types/vaultpro";
 import { Keypair, PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from "@solana/web3.js";
 import { expect } from "chai";
+import * as vaultproIdl from "../target/idl/vaultpro.json";
 import { serializeSetTimelockInstruction, serializeFreezeVaultInstruction } from "./utils/instructions";
-import { executeTransaction, createAndApproveTransaction } from "./utils/transaction-helpers";
+import { executeTransaction, createAndApproveTransaction } from "./utils/helpers";
 import { findMultisigPda, findVaultAuthorityPda } from "./utils/pda";
 
 describe("VaultPro Multisig Management", () => {
@@ -13,7 +13,8 @@ describe("VaultPro Multisig Management", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.VaultPro as Program<VaultPro>;
+  const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
+  const program = new anchor.Program(vaultproIdl as anchor.Idl, programId, provider) as Program;
   
   // Test accounts
   const payer = provider.wallet;
