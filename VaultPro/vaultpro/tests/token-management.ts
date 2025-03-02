@@ -16,6 +16,7 @@ import * as vaultproIdl from "../target/idl/vaultpro.json";
 import { serializeWithdrawInstruction } from "./utils/instructions";
 import { executeTransaction, createAndApproveTransaction } from "./utils/helpers";
 import { findMultisigPda, findVaultAuthorityPda, findVaultPda } from "./utils/pda";
+import { Vaultpro } from "../target/types/vaultpro";
 
 describe("VaultPro Token Management", () => {
   // Configure the client to use the local cluster
@@ -23,7 +24,7 @@ describe("VaultPro Token Management", () => {
   anchor.setProvider(provider);
 
   const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
-  const program = new anchor.Program(vaultproIdl as anchor.Idl, programId, provider) as Program<vaultproIdl>;
+  const program = new anchor.Program<Vaultpro>(vaultproIdl, programId, provider);
   
   // Add debug logs here, after program is defined
   console.log("Program ID:", program.programId.toString());

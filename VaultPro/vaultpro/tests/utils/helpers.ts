@@ -1,8 +1,7 @@
-// tests/utils/transaction-helpers.ts
+// tests/utils/helpers.ts
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
-import { Vaultpro } from "../../target/types/vaultpro";
 import { findTransactionPda } from "./pda";
 
 /**
@@ -18,7 +17,7 @@ import { findTransactionPda } from "./pda";
  * @returns The transaction PDA
  */
 export async function createAndApproveTransaction(
-  program: Program<Vaultpro>,
+  program: any, // Using any to avoid type issues
   proposer: anchor.web3.Keypair | anchor.Wallet,
   multisigPda: PublicKey,
   instructionData: Buffer,
@@ -81,7 +80,7 @@ export async function createAndApproveTransaction(
  * @param transactionPda The transaction address
  */
 export async function executeTransaction(
-  program: Program<Vaultpro>,
+  program: any, // Using any to avoid type issues
   executor: anchor.web3.Keypair | anchor.Wallet,
   multisigPda: PublicKey,
   transactionPda: PublicKey

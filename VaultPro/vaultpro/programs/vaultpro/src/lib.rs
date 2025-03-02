@@ -10,7 +10,7 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("E9iXzh3BwJ2Dz6rrC2aEPxuEAhRzPFr6qT97tJqMGKoD");
+declare_id!("7Q3LjNPGEBbXrLSyvaamCGctDnM2SpEKqY92LuM8Ec8V");
 
 #[program]
 pub mod vaultpro {

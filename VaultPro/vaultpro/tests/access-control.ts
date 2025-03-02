@@ -16,7 +16,7 @@ describe("VaultPro Access Control", () => {
   anchor.setProvider(provider);
 
   const programId = new PublicKey("7Q3LjNPGEBbXrLSyvaamCGctDnM8SpEKqY92LuM8Ec8V");
-  const program = new anchor.Program(vaultproIdl as unknown as anchor.Idl, programId, provider);
+  const program = new anchor.Program<Vaultpro>(vaultproIdl, programId, provider);
   
   // Test accounts
   const payer = provider.wallet;
