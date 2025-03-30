@@ -9,6 +9,7 @@ import { CreateTransaction } from './components/multisig/CreateTransaction';
 import { ApproveTransaction } from './components/multisig/ApproveTransaction';
 import { ExecuteTransaction } from './components/multisig/ExecuteTransaction';
 import { MultisigDetails } from './components/multisig/MultisigDetails';
+import { Logo } from './components/brand/Logo';
 import ClientOnly from './components/ClientOnly';
 import { WalletDebug } from './components/debug/WalletDebug';
 
@@ -61,11 +62,20 @@ function App() {
     }
   };
 
+  const handleNonceInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setNonce(parseInt(e.target.value));
+    } catch (err) {
+      console.error('Invalid nonce:', err);
+    }
+  };
+
   return (
     <WalletContextProvider>
       <WalletDebug />
       <div className="App">
         <header className="App-header">
+          <Logo />
           <h1>VaultPro</h1>
           <p>A secure multisig wallet for Solana</p>
           <WalletConnect />
@@ -73,51 +83,60 @@ function App() {
         
         <ClientOnly>
           <main>
-            <div className="tabs">
-              <button 
-                className={activeTab === 'create-multisig' ? 'active' : ''} 
-                onClick={() => setActiveTab('create-multisig')}
-              >
-                Create Multisig
-              </button>
-              <button 
-                className={activeTab === 'create-vault' ? 'active' : ''} 
-                onClick={() => setActiveTab('create-vault')}
-              >
-                Create Vault
-              </button>
-              <button 
-                className={activeTab === 'deposit' ? 'active' : ''} 
-                onClick={() => setActiveTab('deposit')}
-              >
-                Deposit Tokens
-              </button>
-              <button 
-                className={activeTab === 'create-tx' ? 'active' : ''} 
-                onClick={() => setActiveTab('create-tx')}
-              >
-                Create Transaction
-              </button>
-              <button 
-                className={activeTab === 'approve-tx' ? 'active' : ''} 
-                onClick={() => setActiveTab('approve-tx')}
-              >
-                Approve Transaction
-              </button>
-              <button 
-                className={activeTab === 'execute-tx' ? 'active' : ''} 
-                onClick={() => setActiveTab('execute-tx')}
-              >
-                Execute Transaction
-              </button>
-              <button 
-                className={activeTab === 'multisig-details' ? 'active' : ''} 
-                onClick={() => setActiveTab('multisig-details')}
-              >
-                Multisig Details
-              </button>
-            </div>
-            
+            <nav className="app-navigation">
+              <div className="nav-tabs">
+                <button 
+                  className={`nav-tab ${activeTab === 'create-multisig' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('create-multisig')}
+                >
+                  <span className="tab-icon">🔐</span>
+                  <span className="tab-text">Create Multisig</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'create-vault' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('create-vault')}
+                >
+                  <span className="tab-icon">🏦</span>
+                  <span className="tab-text">Create Vault</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'deposit-tokens' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('deposit-tokens')}
+                >
+                  <span className="tab-icon">💰</span>
+                  <span className="tab-text">Deposit Tokens</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'create-transaction' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('create-transaction')}
+                >
+                  <span className="tab-icon">📝</span>
+                  <span className="tab-text">Create Transaction</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'approve-transaction' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('approve-transaction')}
+                >
+                  <span className="tab-icon">✅</span>
+                  <span className="tab-text">Approve Transaction</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'execute-transaction' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('execute-transaction')}
+                >
+                  <span className="tab-icon">🚀</span>
+                  <span className="tab-text">Execute Transaction</span>
+                </button>
+                <button 
+                  className={`nav-tab ${activeTab === 'multisig-details' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('multisig-details')}
+                >
+                  <span className="tab-icon">📊</span>
+                  <span className="tab-text">Multisig Details</span>
+                </button>
+              </div>
+            </nav>
+
             <div className="tab-content">
               {activeTab === 'create-multisig' && (
                 <CreateMultisig />
@@ -125,51 +144,70 @@ function App() {
               
               {activeTab === 'create-vault' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  {multisigPda && (
+                  {!multisigPda ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Create Token Vault</h2>
+                        <div className="card-subtitle">First, enter a multisig address</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <CreateTokenVault multisigPda={multisigPda} />
                   )}
                 </div>
               )}
               
-              {activeTab === 'deposit' && (
+              {activeTab === 'deposit-tokens' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Token Vault Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter token vault address" 
-                      onChange={handleTokenVaultInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Token Mint Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter token mint address" 
-                      onChange={handleTokenMintInput}
-                    />
-                  </div>
-                  
-                  {multisigPda && tokenVault && tokenMint && (
+                  {!multisigPda || !tokenVault || !tokenMint ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Deposit Tokens</h2>
+                        <div className="card-subtitle">Enter the required addresses</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                            value={multisigPda?.toString() || ''}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Token Vault Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter token vault address" 
+                            onChange={handleTokenVaultInput}
+                            className="animated-input"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Token Mint Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter token mint address" 
+                            onChange={handleTokenMintInput}
+                            className="animated-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <DepositTokens 
                       multisigPda={multisigPda} 
                       tokenVault={tokenVault} 
@@ -179,57 +217,74 @@ function App() {
                 </div>
               )}
               
-              {activeTab === 'create-tx' && (
+              {activeTab === 'create-transaction' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Nonce:</label>
-                    <input 
-                      type="number" 
-                      value={nonce}
-                      onChange={(e) => setNonce(parseInt(e.target.value))}
-                      min={0}
-                    />
-                  </div>
-                  
-                  {multisigPda && (
-                    <CreateTransaction 
-                      multisigPda={multisigPda} 
-                      nonce={nonce} 
-                    />
+                  {!multisigPda ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Create Transaction</h2>
+                        <div className="card-subtitle">Enter the required information</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Nonce:</label>
+                          <input 
+                            type="number" 
+                            placeholder="Enter nonce" 
+                            onChange={handleNonceInput}
+                            className="animated-input"
+                            value={nonce}
+                            min={0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <CreateTransaction multisigPda={multisigPda} nonce={nonce} />
                   )}
                 </div>
               )}
               
-              {activeTab === 'approve-tx' && (
+              {activeTab === 'approve-transaction' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Transaction Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter transaction address" 
-                      onChange={handleTransactionInput}
-                    />
-                  </div>
-                  
-                  {multisigPda && transactionPda && (
+                  {!multisigPda || !transactionPda ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Approve Transaction</h2>
+                        <div className="card-subtitle">Enter the required addresses</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                            value={multisigPda?.toString() || ''}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Transaction Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter transaction address" 
+                            onChange={handleTransactionInput}
+                            className="animated-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <ApproveTransaction 
                       multisigPda={multisigPda} 
                       transactionPda={transactionPda} 
@@ -238,36 +293,47 @@ function App() {
                 </div>
               )}
               
-              {activeTab === 'execute-tx' && (
+              {activeTab === 'execute-transaction' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Transaction Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter transaction address" 
-                      onChange={handleTransactionInput}
-                    />
-                  </div>
-                  
-                  <div className="input-group">
-                    <label>Proposer Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter proposer address" 
-                      onChange={handleProposerInput}
-                    />
-                  </div>
-                  
-                  {multisigPda && transactionPda && proposer && (
+                  {!multisigPda || !transactionPda || !proposer ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Execute Transaction</h2>
+                        <div className="card-subtitle">Enter the required addresses</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                            value={multisigPda?.toString() || ''}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Transaction Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter transaction address" 
+                            onChange={handleTransactionInput}
+                            className="animated-input"
+                            value={transactionPda?.toString() || ''}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Proposer Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter proposer address" 
+                            onChange={handleProposerInput}
+                            className="animated-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <ExecuteTransaction 
                       multisigPda={multisigPda} 
                       transactionPda={transactionPda} 
@@ -279,16 +345,25 @@ function App() {
               
               {activeTab === 'multisig-details' && (
                 <div>
-                  <div className="input-group">
-                    <label>Multisig Address:</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter multisig address" 
-                      onChange={handleMultisigInput}
-                    />
-                  </div>
-                  
-                  {multisigPda && (
+                  {!multisigPda ? (
+                    <div className="input-prompt card-container">
+                      <div className="card-header">
+                        <h2>Multisig Details</h2>
+                        <div className="card-subtitle">Enter a multisig address to view details</div>
+                      </div>
+                      <div className="animated-form">
+                        <div className="form-group">
+                          <label>Multisig Address:</label>
+                          <input 
+                            type="text" 
+                            placeholder="Enter multisig address" 
+                            onChange={handleMultisigInput}
+                            className="animated-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                     <MultisigDetails multisigPda={multisigPda} />
                   )}
                 </div>

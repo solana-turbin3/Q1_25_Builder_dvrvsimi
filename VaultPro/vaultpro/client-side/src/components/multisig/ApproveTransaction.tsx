@@ -30,22 +30,53 @@ export function ApproveTransaction({ multisigPda, transactionPda }: ApproveTrans
   };
 
   return (
-    <div className="approve-transaction">
-      <h2>Approve Transaction</h2>
+    <div className="approve-transaction card-container">
+      <div className="card-header">
+        <h2>Approve Transaction</h2>
+        <div className="card-subtitle">Sign off on a pending transaction</div>
+      </div>
       
       {success ? (
         <div className="success-message">
-          <p>Transaction approved successfully!</p>
+          <div className="success-icon">✓</div>
+          <h3>Transaction Approved!</h3>
+          <p>You have successfully approved this transaction.</p>
+          <button 
+            className="primary-button"
+            onClick={() => setSuccess(false)}
+          >
+            Approve Another Transaction
+          </button>
         </div>
       ) : (
-        <div>
-          <p>Transaction: {transactionPda.toString()}</p>
+        <div className="animated-form">
+          <div className="transaction-info-box">
+            <div className="transaction-info-item">
+              <span>Transaction:</span>
+              <span className="address">{transactionPda.toString().slice(0, 4)}...{transactionPda.toString().slice(-4)}</span>
+            </div>
+            <div className="transaction-info-item">
+              <span>Multisig:</span>
+              <span className="address">{multisigPda.toString().slice(0, 4)}...{multisigPda.toString().slice(-4)}</span>
+            </div>
+          </div>
+          
+          <p className="info-text">
+            By approving this transaction, you are confirming that you have reviewed the transaction details and agree to its execution.
+          </p>
           
           <button 
             onClick={handleApprove} 
+            className="primary-button"
             disabled={loading || !wallet.connected}
           >
-            {loading ? 'Approving...' : 'Approve Transaction'}
+            {loading ? (
+              <span className="loading-spinner">
+                <span className="spinner"></span> Approving...
+              </span>
+            ) : (
+              'Approve Transaction'
+            )}
           </button>
           
           {error && <p className="error-message">{error.message}</p>}
